@@ -1,0 +1,1274 @@
+<!--
+  ========================================================================================
+  本 最终物语 NPC 制作器 由 Lis Sokolov 开发，使用AI进行代码辅助，该制作器与源码基于CC4.0-BY-NC-SA协议开源共享。
+  Fabula Ultima TRPG NPC Dashboard Creator & Retina Capture Engine - Version 1.2.0-CC
+  ========================================================================================
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FU NPC 制作器 跨平台双栖版 v1.2.0-CC - Ultimate Master Core</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入高精度 HTML 图像转换渲染引擎 -->
+    <script src="https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <style>
+        .af-normal {
+            background-color: #2563eb;
+            color: white;
+            border-color: #60a5fa;
+        }
+
+        .af-weak {
+            background-color: #10b981;
+            color: white;
+            border-color: #34d399;
+        }
+
+        .af-resist {
+            background-color: #facc15;
+            color: #854d0e;
+            border-color: #fde047;
+        }
+
+        .af-immune {
+            background-color: #f97316;
+            color: white;
+            border-color: #fb923c;
+        }
+
+        .af-absorb {
+            background-color: #e11d48;
+            color: white;
+            border-color: #fb7185;
+        }
+
+        [v-cloak] {
+            display: none;
+        }
+
+        textarea {
+            resize: none;
+            min-height: 48px;
+            border-radius: 1rem;
+        }
+
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+        }
+
+        .rank-elite {
+            border: 2.5px solid #fbbf24 !important;
+            box-shadow: 0 0 20px rgba(251, 191, 36, 0.45) !important;
+        }
+
+        .rank-general {
+            border: 2.5px solid #e11d48 !important;
+            box-shadow: 0 0 20px rgba(225, 29, 72, 0.45) !important;
+        }
+
+        .status-active {
+            background-color: #fee2e2;
+            border-color: #ef4444;
+            color: #b91c1c;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 p-2 md:p-6 italic-none select-none text-slate-800 leading-normal">
+    <!-- 将最大宽度调整为 lg:max-w-7xl 适配桌面宽幅 -->
+    <div id="app" v-cloak class="max-w-md lg:max-w-7xl mx-auto space-y-6">
+
+        <!-- ======================= 长图捕获主体层 ======================= -->
+        <div id="npc-card-capture" class="relative bg-white shadow-2xl rounded-[2.5rem] overflow-hidden border border-slate-200 transition-all duration-550"
+             :class="rank === 'elite' ? 'rank-elite' : (rank === 'general' ? 'rank-general' : '')">
+
+            <!-- 头部：核心阶级 (自适应双栏) -->
+            <div class="p-6 text-white overflow-hidden relative transition-all duration-550"
+                 :class="{'bg-slate-900': rank==='minor', 'bg-amber-900': rank==='elite', 'bg-rose-950': rank==='general'}">
+
+                <div class="grid grid-cols-12 gap-4 items-center relative z-10">
+                    <div class="col-span-12 md:col-span-8">
+                        <input v-model="name" placeholder="NPC 名称" class="bg-transparent font-black w-full outline-none border-b border-white/20 focus:border-white/50 pb-1 text-white" :style="{ fontSize: (fontSizes.input + 10) + 'px' }">
+                        <div class="flex flex-wrap gap-2 mt-3 items-center">
+                            <select v-model="rank" class="font-black px-2.5 py-1 rounded shadow-sm uppercase tracking-tighter" :style="{ fontSize: fontSizes.desc + 'px' }"
+                                    :class="{'bg-slate-700 text-slate-400': rank==='minor', 'bg-amber-500 text-amber-955': rank==='elite', 'bg-rose-600 text-white': rank==='general'}">
+                                <option value="minor">Minor 小兵</option>
+                                <option value="elite">Elite 精英</option>
+                                <option value="general">General 大将</option>
+                            </select>
+                            <div v-if="rank === 'general'" class="flex items-center bg-rose-600/30 rounded px-2 gap-1 border border-rose-500/30">
+                                <span class="font-black opacity-60" :style="{ fontSize: fontSizes.desc + 'px' }">X=</span>
+                                <input type="number" v-model.number="generalX" class="w-6 bg-transparent font-black text-center outline-none text-white" :style="{ fontSize: fontSizes.input + 'px' }">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-span-12 md:col-span-4 flex gap-3">
+                        <div class="flex-1 bg-black/20 rounded-[1.5rem] p-3 text-center border border-white/10 backdrop-blur">
+                            <p class="font-bold opacity-45 uppercase" :style="{ fontSize: fontSizes.desc + 'px' }">Level</p>
+                            <input type="number" v-model.number="level" class="bg-transparent font-black w-full text-center outline-none text-white leading-none" :style="{ fontSize: (fontSizes.input + 12) + 'px' }">
+                        </div>
+                        <div class="flex-1 bg-black/20 rounded-[1.5rem] p-3 text-center border border-white/10 backdrop-blur justify-between flex flex-col">
+                            <span class="font-bold opacity-45 uppercase block" :style="{ fontSize: fontSizes.desc + 'px' }">Skills SP</span>
+                            <span class="font-black leading-none pb-0.5" :style="{ fontSize: (fontSizes.input + 8) + 'px' }">{{ totalSkillPoints }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 升级槽剩余容量条 -->
+                <div class="mt-4 bg-white/10 px-4 py-2.5 rounded-2xl flex justify-between items-center border border-white/5 relative z-10">
+                    <span class="font-black opacity-60 uppercase" :style="{ fontSize: fontSizes.desc + 'px' }">Attributes Upgrades Left / 属性成长点</span>
+                    <span class="font-black" :class="availUpgrades - usedUpgrades > 0 ? 'text-emerald-400' : 'text-white/30'" :style="{ fontSize: fontSizes.input + 'px' }">
+                        {{ availUpgrades - usedUpgrades }} <span class="opacity-40">/ {{ availUpgrades }} 可分配</span>
+                    </span>
+                </div>
+            </div>
+
+            <!-- ======================= PC 端三栏物理栅格 / 手机端单列自适应 ======================= -->
+            <div class="p-6 bg-white grid grid-cols-1 lg:grid-cols-3 gap-8 shrink-0 pb-3">
+
+                <!-- 〓〓〓〓 第一栏 (Column 1): 核心属性面板与相性 〓〓〓〓 -->
+                <div class="space-y-6">
+                    <p class="font-black text-slate-400 uppercase tracking-widest border-l-4 border-slate-900 pl-2" :style="{ fontSize: fontSizes.title + 'px' }">Column I - System & Attributes</p>
+
+                    <!-- 物种与规则详情说明区 -->
+                    <div class="space-y-3">
+                        <select v-model="selectedSpeciesKey" @change="handleSpeciesChange" class="w-full bg-slate-100 border-none rounded-2xl p-3 font-black text-slate-700 outline-none appearance-none shadow-inner cursor-pointer" :style="{ fontSize: fontSizes.input + 'px' }">
+                            <option v-for="(v, k) in speciesData" :key="k" :value="k">{{v.name}} (SP+{{v.skill}})</option>
+                        </select>
+
+                        <!-- 物种简介与特性展示框（支持弱点额外SP开关） -->
+                        <div class="bg-indigo-50/50 p-3.5 rounded-2xl border border-indigo-100/40 text-left space-y-2 relative">
+                            <div class="flex justify-between items-center font-black">
+                                <span class="text-indigo-600 uppercase tracking-wider" :style="{ fontSize: fontSizes.title + 'px' }">{{ speciesData[selectedSpeciesKey].name }} 物种规则</span>
+
+                                <!-- 滑块开关 -->
+                                <label class="inline-flex items-center cursor-pointer select-none">
+                                    <span class="mr-2 font-black text-slate-500 uppercase tracking-tighter font-sans" :style="{ fontSize: fontSizes.desc - 1 + 'px' }">特性弱点算SP</span>
+                                    <div class="relative w-8 h-4 bg-slate-205 rounded-full transition-colors flex items-center" :class="speciesWeaknessHasSP ? 'bg-indigo-600' : 'bg-slate-300'">
+                                        <div class="absolute w-3 h-3 bg-white rounded-full transition-transform duration-200" :style="speciesWeaknessHasSP ? 'transform: translateX(15px);' : 'transform: translateX(2px);'"></div>
+                                    </div>
+                                    <input type="checkbox" v-model="speciesWeaknessHasSP" class="hidden">
+                                </label>
+                            </div>
+                            <p class="text-slate-505 font-medium leading-relaxed italic" :style="{ fontSize: fontSizes.desc + 'px' }">{{ speciesData[selectedSpeciesKey].desc }}</p>
+                            <div class="text-indigo-950 bg-white/70 p-2.5 rounded-xl border border-indigo-100/30 leading-relaxed font-bold" :style="{ fontSize: fontSizes.desc + 'px' }">
+                                【特性规则】{{ speciesData[selectedSpeciesKey].rule }}
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-4 gap-1.5 px-0.5">
+                            <button v-for="(dice, tName) in templates" :key="tName" @click="selectedTemplateName = tName"
+                                    class="py-2 rounded-xl font-black uppercase transition-all border-2" :style="{ fontSize: fontSizes.desc + 'px' }"
+                                    :class="selectedTemplateName === tName ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg' : 'bg-white border-slate-100 text-slate-400'">
+                                {{ tName }}<span class="block opacity-60 font-medium scale-75 font-sans">{{ dice.join('/') }}</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 属性四维分配与手动调整 -->
+                    <section class="grid grid-cols-2 gap-3 font-black">
+                        <div v-for="stat in ['dex', 'ins', 'mig', 'wil']" :key="stat" class="bg-white border-2 border-slate-100 p-2.5 rounded-[1.8rem] shadow-sm relative transition-all">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-slate-350 uppercase italic" :style="{ fontSize: fontSizes.desc + 'px' }">{{statNames[stat]}}</span>
+                                <div class="flex gap-1 font-sans">
+                                    <button @click="modifyUpgrade(stat, -1)" class="w-4 h-4 bg-slate-50 border rounded text-[9px] flex items-center justify-center font-bold shadow-sm">-</button>
+                                    <button @click="modifyUpgrade(stat, 1)" class="w-4 h-4 bg-slate-50 border rounded text-[9px] flex items-center justify-center font-bold shadow-sm">+</button>
+                                </div>
+                            </div>
+                            <div class="flex items-baseline gap-1 relative">
+                                <span class="italic leading-none font-black text-blue-600Stat flex" :class="isStatDebuffed(stat) ? 'text-rose-500 animate-pulse' : 'text-blue-605'" :style="{ fontSize: (fontSizes.input + 8) + 'px' }">d{{ combatStats[stat] }}</span>
+                                <select v-model="assignments[stat]" class="text-slate-400 bg-transparent outline-none uppercase font-black font-sans" :style="{ fontSize: fontSizes.desc - 1 + 'px' }">
+                                    <option v-for="(v, i) in currentPool" :value="i">Base d{{v}}</option>
+                                </select>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- HP 与 MP 信息看板 -->
+                    <div class="grid grid-cols-2 gap-3 font-black">
+                        <!-- 生命面板支持危机动画 -->
+                        <div class="p-4 rounded-3xl flex justify-between items-center shadow-inner relative overflow-hidden transition-all duration-305 border"
+                             :class="isHPCrisis ? 'bg-rose-600 border-rose-700 text-white animate-pulse' : 'bg-rose-50 border-rose-100 text-slate-800'">
+                            <span class="uppercase leading-none" :class="isHPCrisis ? 'text-rose-200' : 'text-rose-350'" :style="{ fontSize: fontSizes.desc + 'px' }">Health HP</span>
+                            <div class="text-right">
+                                <span class="leading-none font-black block" :class="isHPCrisis ? 'text-white' : 'text-rose-600'" :style="{ fontSize: (fontSizes.input + 10) + 'px' }">{{ remainingHP }}</span>
+                                <p class="font-bold mt-1 uppercase" :class="isHPCrisis ? 'text-rose-100' : 'text-rose-300'" :style="{ fontSize: fontSizes.desc - 1 + 'px' }">
+                                    Cri: {{Math.floor(finalHP/2)}} <span v-if="isHPCrisis" class="block font-black tracking-widest text-[8px] mt-0.5">⚠️危机状态</span>
+                                </p>
+                            </div>
+                        </div>
+                        <div class="bg-cyan-50 border border-cyan-155 p-4 rounded-3xl flex justify-between items-center shadow-inner text-slate-800">
+                            <span class="text-cyan-405 uppercase leading-none" :style="{ fontSize: fontSizes.desc + 'px' }">Mind MP</span>
+                            <div class="text-right">
+                                <span class="text-cyan-600 leading-none font-black" :style="{ fontSize: (fontSizes.input + 10) + 'px' }">{{ remainingMP }}</span>
+                                <p class="font-bold mt-1 uppercase text-cyan-305" :style="{ fontSize: fontSizes.desc - 1 + 'px' }">Max: {{ finalMP }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 动态状态叠加（自动判定物种免疫逻辑） -->
+                    <div class="grid grid-cols-3 gap-2 p-1 bg-slate-50 rounded-[1.8rem] p-2">
+                        <button v-for="s in statusList" :key="s.name"
+                                @click="isStatusDisabled(s.key) ? null : statuses[s.key] = !statuses[s.key]"
+                                class="flex flex-col items-center justify-center p-2 rounded-2xl border-2 transition-all font-sans"
+                                :disabled="isStatusDisabled(s.key)"
+                                :class="[
+                                    statuses[s.key] ? 'status-active shadow-inner ring-2 ring-rose-100 bg-rose-50' : 'bg-white border-transparent text-slate-400',
+                                    isStatusDisabled(s.key) ? 'opacity-30 cursor-not-allowed border-dashed bg-slate-100/50' : ''
+                                ]">
+                            <span class="font-black" :style="{ fontSize: fontSizes.input + 'px' }">{{s.name}}</span>
+                            <span class="font-bold uppercase" :style="{ fontSize: fontSizes.desc - 2 + 'px' }">{{ isStatusDisabled(s.key) ? '免疫' : s.desc }}</span>
+                        </button>
+                    </div>
+
+                    <!-- 战斗核心基本面板 -->
+                    <div class="grid grid-cols-6 bg-slate-900 rounded-[2rem] py-4 text-white text-center shadow-xl overflow-hidden font-sans">
+                        <div v-for="label in ['物防', '魔防', '先攻', '命中', '额外', '行动']" :key="label" class="border-r border-slate-800 px-0.5 last:border-none">
+                            <p class="text-slate-505 font-black uppercase mb-1" :style="{ fontSize: fontSizes.desc - 2 + 'px' }">{{label}}</p>
+                            <p class="font-black tracking-tighter" :class="getPanelColor(label)" :style="{ fontSize: fontSizes.input + 'px' }">{{ getValue(label) }}</p>
+                        </div>
+                    </div>
+
+                    <!-- 🛡️ 伤害相性抗性面板 🛡️ -->
+                    <section class="bg-slate-900 p-5 rounded-[2.5rem] border border-slate-800 shadow-2xl">
+                        <span class="font-black text-slate-500 block text-center mb-3.5 uppercase tracking-widest leading-none font-sans" :style="{ fontSize: fontSizes.title + 'px' }">DAMAGE AFFINITIES / 伤害相性抗性面板</span>
+                        <div class="grid grid-cols-3 lg:grid-cols-9 gap-2">
+                            <!-- 物理 (占一格) -->
+                            <div @click="toggleAffinity('物理')" class="aspect-square border-2 rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all shadow-sm" :class="getAffinityClass('物理')">
+                                <span class="font-black uppercase opacity-60 leading-none" :style="{ fontSize: fontSizes.desc - 1 + 'px' }">物</span>
+                                <span class="font-black font-sans leading-none mt-1.5" :style="{ fontSize: fontSizes.desc + 'px' }">{{affinities['物理']?.label}}</span>
+                            </div>
+                            <!-- 8 种伤害元素 (占8格) -->
+                            <div v-for="attr in ['风','雷','火','冰','土','光','暗','毒']" :key="attr" @click="toggleAffinity(attr)"
+                                 class="aspect-square border-2 rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all shadow-sm" :class="getAffinityClass(attr)">
+                                <span class="font-black uppercase opacity-60 leading-none" :style="{ fontSize: fontSizes.desc - 1 + 'px' }">{{attr}}</span>
+                                <span class="font-black font-sans leading-none mt-1.5" :style="{ fontSize: fontSizes.desc - 1 + 'px' }">{{affinities[attr]?.type !== '正常' ? affinities[attr]?.label : ''}}</span>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- PC 战损记录仪 (在导出图片时自动隐藏) -->
+                    <section v-if="!isGenerating" class="hidden lg:block bg-slate-50/80 p-4.5 rounded-[2rem] border border-slate-200 text-left space-y-4 transition-all duration-300">
+                        <div class="flex justify-between items-center">
+                            <span class="font-black text-indigo-500 uppercase tracking-widest leading-none animate-pulse" :style="{ fontSize: fontSizes.title + 'px' }">PC Live Tracker / 战损积分仪表盘</span>
+                            <span class="text-[7.5px] font-bold bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full leading-none font-sans">PC Live</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3.5">
+                            <div class="bg-white p-3 rounded-2xl border border-rose-100/50 shadow-inner flex flex-col">
+                                <label class="text-rose-500 uppercase font-black block mb-1 pointer-events-none" :style="{ fontSize: fontSizes.desc - 1 + 'px' }">已损生命 (HP Lost)</label>
+                                <input type="number" v-model.number="lostHP" placeholder="0" class="w-full bg-transparent font-black text-rose-600 outline-none font-sans" :style="{ fontSize: fontSizes.input + 2 + 'px' }">
+                            </div>
+                            <div class="bg-white p-3 rounded-2xl border border-cyan-100/55 shadow-inner flex flex-col">
+                                <label class="text-cyan-500 uppercase font-black block mb-1 pointer-events-none" :style="{ fontSize: fontSizes.desc - 1 + 'px' }">已损精神 (MP Spent)</label>
+                                <input type="number" v-model.number="lostMP" placeholder="0" class="w-full bg-transparent font-black text-cyan-600 outline-none font-sans" :style="{ fontSize: fontSizes.input + 2 + 'px' }">
+                            </div>
+                        </div>
+                        <!-- 生存血气比率条 -->
+                        <div class="space-y-1.5 px-0.5">
+                            <div class="flex justify-between font-bold text-slate-400" :style="{ fontSize: fontSizes.desc - 1 + 'px' }">
+                                <span>当前剩余比率 / Health Ratio</span>
+                                <span :class="isHPCrisis ? 'text-rose-550 font-black animate-pulse' : 'text-emerald-500'">{{ (finalHP > 0 ? Math.round(remainingHP / finalHP * 100) : 100) }}%</span>
+                            </div>
+                            <div class="w-full bg-slate-205 rounded-full h-2.5 overflow-hidden shadow-inner">
+                                <div class="h-2.5 rounded-full transition-all duration-305"
+                                     :class="isHPCrisis ? 'bg-red-500' : 'bg-emerald-500'"
+                                     :style="{ width: (finalHP > 0 ? (remainingHP / finalHP * 100) : 100) + '%' }"></div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- 〓〓〓〓 第二栏 (Column 2): 技能矩阵与法术库书架 〓〓〓〓 -->
+                <div class="space-y-6">
+                    <p class="font-black text-slate-400 uppercase tracking-widest border-l-4 border-slate-900 pl-2" :style="{ fontSize: fontSizes.title + 'px' }">Column II - Skill Matrix & Magic</p>
+
+                    <!-- 双模态技能选择组件 -->
+                    <section class="space-y-3.5">
+                        <p class="font-black text-slate-400 uppercase tracking-wider block px-1" :style="{ fontSize: fontSizes.title + 'px' }">Selected Skills / NPC技能与法术</p>
+
+                        <!-- 【模式 A：编辑模式】 -->
+                        <div v-if="!isGenerating" class="space-y-3 max-h-[750px] lg:max-h-[850px] overflow-y-auto pr-1">
+
+                            <!-- 人形自带使用装备词条 -->
+                            <div v-if="selectedSpeciesKey === 'humanoid'" class="bg-indigo-50/60 border border-indigo-150 rounded-3xl p-3.5 shadow-sm space-y-2 text-left opacity-95">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-5 h-5 bg-indigo-200 text-indigo-700 rounded-full flex items-center justify-center font-black text-[9px] font-sans">★</div>
+                                    <div class="flex-1 font-black text-indigo-900" :style="{ fontSize: fontSizes.input + 'px' }">使用装备 (人形自带)</div>
+                                    <span class="text-[7.5px] font-black bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded leading-none font-sans">自带免消耗</span>
+                                </div>
+                                <div class="font-medium bg-white/70 p-2.5 rounded-2xl border border-indigo-100/30 leading-relaxed text-indigo-700" :style="{ fontSize: fontSizes.desc + 'px' }">
+                                    【物种被动】NPC获得一个饰品栏位，一个防具栏位，一个主手栏位，以及一个副手栏位。无需花费或选择普通卡槽技能。
+                                </div>
+                            </div>
+
+                            <!-- 动态装配技能格 -->
+                            <div v-for="n in totalSkillPoints" :key="n" class="bg-slate-50 border border-slate-100 rounded-3xl p-3 shadow-sm hover:bg-white transition-all space-y-2">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-5 h-5 bg-slate-205 text-slate-505 rounded-full flex items-center justify-center font-black text-[9px] font-sans">{{n}}</div>
+                                    <select v-model="chosenSkills[n-1]" @change="onSkillSelectChange(n-1)" class="flex-1 bg-transparent font-black text-slate-700 outline-none" :style="{ fontSize: fontSizes.input + 'px' }">
+                                        <option value="">+ 选择词条或技能...</option>
+                                        <option v-for="skill in skillBank" :value="skill.name"
+                                                :disabled="isSkillSelectedElsewhere(skill.name, n-1) || (selectedSpeciesKey === 'beast' && skill.name === '使用装备（限制）') || (selectedSpeciesKey === 'humanoid' && skill.name === '使用装备（限制）')">
+                                            {{skill.name}} {{ skill.name.includes('限制') ? '[限一]' : ''}}
+                                        </option>
+                                        <option value="CUSTOM">-- [自定义技能] --</option>
+                                    </select>
+                                </div>
+
+                                <!-- 普通版标准技能描述 -->
+                                <div v-if="chosenSkills[n-1] && chosenSkills[n-1] !== 'CUSTOM'" class="font-medium bg-amber-50/50 p-2.5 rounded-2xl border border-amber-100/50 leading-relaxed text-left text-slate-505" :style="{ fontSize: fontSizes.desc + 'px' }">
+                                    {{ skillDescriptions[chosenSkills[n-1]] }}
+                                </div>
+
+                                <!-- 【本期升级优化】：支持可多复选自定义技能卡片输入沙盒 -->
+                                <div v-else-if="chosenSkills[n-1] === 'CUSTOM' && ensureCustomSkillInit(n-1)" class="space-y-2 pt-2 border-t border-slate-200/50 text-left">
+                                    <div class="space-y-1">
+                                        <label class="font-black text-amber-500 uppercase flex justify-between" :style="{ fontSize: fontSizes.desc - 1 + 'px' }">
+                                            <span>技能特专名称 (Custom Name)</span>
+                                            <span class="text-right text-[7px] text-slate-400 font-sans tracking-tight">自定义技能格</span>
+                                        </label>
+                                        <input v-model="customSkillsMap[n-1].name" placeholder="请输入自定义技能名称..."
+                                               class="w-full bg-white border border-slate-205 rounded-xl p-1.5 font-bold outline-none text-slate-700 shadow-sm" :style="{ fontSize: fontSizes.input + 'px' }">
+                                    </div>
+                                    <div class="space-y-1">
+                                        <label class="font-black text-amber-550 uppercase" :style="{ fontSize: fontSizes.desc - 1 + 'px' }">技能详细效果 (Manual Rule description)</label>
+                                        <textarea v-model="customSkillsMap[n-1].desc" placeholder="请输入具体规则与被动数值描述..."
+                                                  class="w-full bg-white border border-slate-205 rounded-2xl p-2.5 h-16 outline-none font-medium leading-relaxed text-slate-700 shadow-sm" :style="{ fontSize: fontSizes.desc + 'px' }"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 【模式 B：导出模式】 -->
+                        <div v-else class="flex flex-wrap gap-2 p-3 bg-slate-50/50 border border-slate-100 rounded-[1.8rem] min-h-[50px] items-center justify-start">
+                            <!-- 人形自带装备技能徽章导出 -->
+                            <div v-if="selectedSpeciesKey === 'humanoid'" class="px-3 py-1.5 bg-indigo-900 text-slate-100 border border-indigo-850 font-extrabold rounded-2xl flex items-center gap-2 shadow-sm transition-all">
+                                <span class="w-3.5 h-3.5 bg-indigo-400 text-slate-950 rounded-full flex items-center justify-center text-[7.5px] font-sans font-black leading-none">★</span>
+                                <span :style="{ fontSize: fontSizes.desc + 'px' }">使用装备 (人形自带)</span>
+                            </div>
+                            <template v-for="(skillName, idx) in chosenSkills">
+                                <div v-if="skillName" class="px-3 py-1.5 bg-slate-900 text-slate-100 border border-slate-800 font-extrabold rounded-2xl flex items-center gap-2 shadow-sm transition-all">
+                                    <span class="w-3.5 h-3.5 bg-amber-400 text-slate-950 rounded-full flex items-center justify-center text-[7.5px] font-sans font-black leading-none">{{ idx + 1 }}</span>
+                                    <span :style="{ fontSize: fontSizes.desc + 'px' }">
+                                        {{ skillName === 'CUSTOM' ? (customSkillsMap[idx]?.name || '自定义技能') : skillName }}
+                                    </span>
+                                </div>
+                            </template>
+                            <div v-if="!chosenSkills.some(s => s) && selectedSpeciesKey !== 'humanoid'" class="italic py-1 px-1 text-slate-400" :style="{ fontSize: fontSizes.desc + 'px' }">
+                                级阶技能空载中
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- 自适应魔导格 -->
+                    <section v-if="spellSlotCount > 0" class="space-y-3 bg-blue-50/40 p-4 rounded-[2rem] border border-blue-100/60 transition-all duration-300">
+                        <p class="font-black text-blue-555 uppercase tracking-widest px-1 font-sans" :style="{ fontSize: fontSizes.title + 'px' }">Spell Grimoire / 魔法法术格架 ({{spellSlotCount}})</p>
+                        <div class="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+                            <div v-for="(spellSlot, idx) in chosenSpells" :key="idx" class="bg-white border border-blue-105 rounded-2xl p-3 shadow-sm space-y-2 text-left">
+                                <div class="flex items-center gap-2">
+                                    <span class="w-5 h-5 bg-blue-105 text-blue-600 rounded-full flex items-center justify-center font-black text-[9px] font-sans">{{ idx + 1 }}</span>
+                                    <select v-model="spellSlot.selectedName" @change="onSpellSelectChange(idx)" class="flex-1 bg-transparent font-black text-slate-700 outline-none" :style="{ fontSize: fontSizes.input + 'px' }">
+                                        <option value="">- 请选择法术 -</option>
+                                        <option v-for="s in spellBank" :value="s.name">{{ s.name }} ({{ s.mp }} MP)</option>
+                                        <option value="CUSTOM">-- [自定义法术] --</option>
+                                    </select>
+                                </div>
+
+                                <!-- 自定义魔法字段录入 -->
+                                <div v-if="spellSlot.selectedName === 'CUSTOM'" class="space-y-2 pt-2 border-t border-slate-100">
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label class="font-black text-indigo-400 uppercase font-sans" :style="{ fontSize: fontSizes.desc + 'px' }">法术名称</label>
+                                            <input v-model="spellSlot.customName" class="w-full bg-slate-55 border border-slate-205 rounded p-1 font-bold outline-none text-slate-700" :style="{ fontSize: fontSizes.input + 'px' }">
+                                        </div>
+                                        <div>
+                                            <label class="font-black text-indigo-400 uppercase font-sans" :style="{ fontSize: fontSizes.desc + 'px' }">MP消耗</label>
+                                            <input v-model="spellSlot.mp" class="w-full bg-slate-55 border border-slate-205 rounded p-1 font-bold outline-none text-slate-700" :style="{ fontSize: fontSizes.input + 'px' }">
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label class="font-black text-indigo-400 uppercase font-sans" :style="{ fontSize: fontSizes.desc + 'px' }">目标</label>
+                                            <input v-model="spellSlot.target" class="w-full bg-slate-55 border border-slate-205 rounded p-1 font-bold outline-none text-slate-700" :style="{ fontSize: fontSizes.input + 'px' }">
+                                        </div>
+                                        <div>
+                                            <label class="font-black text-indigo-400 uppercase font-sans" :style="{ fontSize: fontSizes.desc + 'px' }">持续时间</label>
+                                            <input v-model="spellSlot.duration" class="w-full bg-slate-55 border border-slate-205 rounded p-1 font-bold outline-none text-slate-700" :style="{ fontSize: fontSizes.input + 'px' }">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="font-black text-indigo-400 uppercase font-sans" :style="{ fontSize: fontSizes.desc + 'px' }">效果描述</label>
+                                        <textarea v-model="spellSlot.effect" class="w-full bg-slate-55 border border-slate-205 rounded p-1 h-10 outline-none font-medium leading-relaxed text-slate-700" :style="{ fontSize: fontSizes.input + 'px' }"></textarea>
+                                    </div>
+                                </div>
+
+                                <!-- 标准模组数据效果 -->
+                                <div v-else-if="spellSlot.selectedName" class="space-y-1 pt-2 border-t border-slate-100">
+                                    <div class="flex justify-between text-blue-400 font-bold uppercase font-sans" :style="{ fontSize: fontSizes.desc - 1 + 'px' }">
+                                        <span>消耗: {{ spellSlot.mp }} MP | 耗时: {{ spellSlot.duration }}</span>
+                                        <span>目标: {{ spellSlot.target }}</span>
+                                    </div>
+                                    <p class="text-slate-500 italic leading-relaxed" :style="{ fontSize: fontSizes.desc + 'px' }">{{ spellSlot.effect }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- 〓〓〓〓 第三栏 (Column 3): 装备，备忘录，手动微调 〓〓〓〓 -->
+                <div class="space-y-6">
+                    <p class="font-black text-slate-400 uppercase tracking-widest border-l-4 border-slate-900 pl-2" :style="{ fontSize: fontSizes.title + 'px' }">Column III - Gear & Logs</p>
+
+                    <!-- 自适应装备栏位 -->
+                    <section v-if="showEquipmentSection" class="space-y-3 bg-amber-50/40 p-4 rounded-[2.2rem] border border-amber-100 transition-all duration-300 text-left">
+                        <p class="font-black text-amber-600 uppercase tracking-widest leading-none" :style="{ fontSize: fontSizes.title + 'px' }">Equipment Grid / NPC装备详情</p>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div v-for="slot in ['主手', '副手', '饰品', '防具']" :key="slot" class="bg-white p-2.5 rounded-2xl border border-amber-50 shadow-sm relative">
+                                <label class="uppercase font-black block mb-0.5 pointer-events-none text-amber-400" :style="{ fontSize: fontSizes.desc - 2 + 'px' }">{{slot}} Slot</label>
+                                <input v-model="equipment[slot]" placeholder="..." class="w-full bg-transparent font-bold text-slate-600 outline-none px-1 font-sans" :style="{ fontSize: fontSizes.input + 'px' }">
+                            </div>
+                        </div>
+                        <div class="bg-white p-3 rounded-2xl border border-amber-55 shadow-sm relative">
+                            <label class="font-black text-amber-400 uppercase block mb-1" :style="{ fontSize: fontSizes.desc - 1 + 'px' }">Equipment Traits / 装备专属词条描述</label>
+                            <textarea v-model="equipment.traits" placeholder="描述特殊效果、词条或附魔逻辑..."
+                                      class="w-full bg-transparent font-bold outline-none px-1 h-12 leading-relaxed text-slate-505" :style="{ fontSize: fontSizes.input + 'px' }"></textarea>
+                        </div>
+                    </section>
+
+                    <!-- 大段记事动作登记区 -->
+                    <section class="space-y-4 bg-slate-50/50 p-4 rounded-[2rem] border border-slate-205 text-left">
+                        <p class="font-black text-slate-500 uppercase tracking-widest pl-2 border-l-4 border-slate-900" :style="{ fontSize: fontSizes.title + 'px' }">
+                            Combat Registry / 战斗细节与规则登记区
+                        </p>
+                        <div class="space-y-3">
+                            <div class="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm relative">
+                                <label class="font-black text-rose-500 uppercase block mb-1" :style="{ fontSize: fontSizes.desc - 1.5 + 'px' }">Basic Attack / 基础攻击方式</label>
+                                <textarea v-model="combatText.basicAttacks" placeholder="例如：【近战】★击打 (力量+力量)；造成 【HR+10】 点物理伤害。"
+                                          class="w-full bg-slate-55 border border-slate-100 rounded-xl p-2 font-medium text-slate-700 outline-none focus:bg-white h-16 leading-relaxed" :style="{ fontSize: fontSizes.input + 'px' }"></textarea>
+                            </div>
+                            <div class="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm relative">
+                                <label class="font-black text-indigo-550 uppercase block mb-1" :style="{ fontSize: fontSizes.desc - 1.5 + 'px' }">Spells & Skills / 法术与技能详细信息明细</label>
+                                <textarea v-model="combatText.spellSkillDetails" placeholder="使用此栏登记被动技能效果与专长明细动作..."
+                                          class="w-full bg-slate-55 border border-slate-100 rounded-xl p-2 font-medium text-slate-700 outline-none focus:bg-white h-16 leading-relaxed" :style="{ fontSize: fontSizes.input + 'px' }"></textarea>
+                            </div>
+                            <div class="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm relative">
+                                <label class="font-black text-violet-500 uppercase block mb-1" :style="{ fontSize: fontSizes.desc - 1.5 + 'px' }">Other Actions / 其它动作</label>
+                                <textarea v-model="combatText.otherActions" placeholder="在此栏登记可能使用的副手行动或特有规则动作..."
+                                          class="w-full bg-slate-55 border border-slate-100 rounded-xl p-2 font-medium text-slate-700 outline-none focus:bg-white h-16 leading-relaxed" :style="{ fontSize: fontSizes.input + 'px' }"></textarea>
+                            </div>
+                            <div class="bg-white p-3 rounded-2xl border border-slate-100 shadow-sm relative">
+                                <label class="font-black text-emerald-600 uppercase block mb-1" :style="{ fontSize: fontSizes.desc - 1.5 + 'px' }">Special Rules / 特殊或特性规则</label>
+                                <textarea v-model="combatText.specialRules" placeholder="例如：【战意高昂】HP大于50%时，命中+2..."
+                                          class="w-full bg-slate-55 border border-slate-100 rounded-xl p-2 font-medium text-slate-700 outline-none focus:bg-white h-16 leading-relaxed" :style="{ fontSize: fontSizes.input + 'px' }"></textarea>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- 末端微调设定 -->
+                    <section class="bg-slate-50 p-4 rounded-[2rem] border border-slate-205 text-left font-sans">
+                        <span class="font-black text-slate-400 block text-center mb-3 uppercase tracking-wider" :style="{ fontSize: fontSizes.title + 'px' }">Manual Adjustment (末端手动公式修正)</span>
+                        <div class="grid grid-cols-5 gap-2">
+                            <div v-for="adj in [
+                                {name:'MaxHP', key:'hp'},
+                                {name:'MaxMP', key:'mp'},
+                                {name:'物防', key:'def'},
+                                {name:'魔防', key:'mdef'},
+                                {name:'先攻', key:'init'}
+                            ]" :key="adj.key" class="text-center relative">
+                                <label class="font-black text-slate-400 mb-1 block uppercase" :style="{ fontSize: fontSizes.desc - 2 + 'px' }">{{adj.name}}</label>
+                                <input type="number" v-model.number="adjustments[adj.key]"
+                                       class="w-full bg-white border border-slate-205 rounded-lg text-center font-black py-1 text-indigo-650 outline-none shadow-sm" :style="{ fontSize: fontSizes.input + 'px' }">
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+            </div>
+
+            <!-- ======================= 【开源版权与页面开发声明区】 ======================= -->
+            <div class="px-6 py-4 bg-slate-50/60 border-t border-slate-100 flex flex-col md:flex-row justify-between items-center gap-3 relative z-10 text-left font-sans">
+                <span class="text-slate-405 font-semibold leading-relaxed" :style="{ fontSize: fontSizes.desc + 'px' }">
+                    💡 本 <span class="text-slate-700 font-extrabold">最终物语 NPC 制作器</span> 由 <span class="text-indigo-600 font-black">Lis Sokolov</span> 开发，使用AI进行代码辅助，该制作器与源码基于 <span class="text-indigo-600 font-black">CC 4.0-BY-NC-SA</span> 协议开源共享。
+                </span>
+                <span class="font-sans font-black tracking-widest uppercase text-indigo-500/70 shrink-0 select-all" :style="{ fontSize: fontSizes.desc - 1 + 'px' }">
+                    Lis Sokolov © Fu NPC Builder v1.2.0
+                </span>
+            </div>
+
+        </div>
+        <!-- ======================= 长图捕获主体层结束 ======================= -->
+        <!-- 数据交换及 PC 截图大控制面板 (PC 端三栏完美布局，手机端堆叠) -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-8">
+
+            <!-- A、设置控制台：全局字号调节器 -->
+            <section class="bg-indigo-50/50 p-5 rounded-[2.5rem] border border-indigo-100 shadow-xl space-y-4 text-left flex flex-col justify-between">
+                <div class="flex justify-between items-center px-1">
+                    <p class="text-[10px] font-black text-indigo-600 uppercase tracking-widest leading-none">FONT CONTROLLER / 智能字号控制台</p>
+                    <span class="text-[7px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-black font-sans leading-none">字号微调</span>
+                </div>
+
+                <div class="space-y-3.5 flex-1 mt-1 justify-center flex flex-col">
+                    <!-- 标题字号微调 -->
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-[9px] font-black text-slate-500">
+                            <span>栏目/总标题大小 (Title)</span>
+                            <span class="font-bold text-indigo-600">{{ fontSizes.title }}px</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="range" min="8" max="22" v-model.number="fontSizes.title" class="flex-1 accent-indigo-600 bg-slate-200 rounded-lg appearance-none h-1.5">
+                            <div class="flex gap-1">
+                                <button @click="fontSizes.title = Math.max(8, fontSizes.title - 1)" class="w-5 h-5 bg-white border border-slate-205 rounded text-[10px] flex items-center justify-center font-black shadow-inner">-</button>
+                                <button @click="fontSizes.title = Math.min(22, fontSizes.title + 1)" class="w-5 h-5 bg-white border border-slate-205 rounded text-[10px] flex items-center justify-center font-black shadow-inner">+</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 数值输入字号微调 -->
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-[9px] font-black text-slate-500">
+                            <span>输入框/属性数值大小 (Values)</span>
+                            <span class="font-bold text-indigo-600">{{ fontSizes.input }}px</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="range" min="8" max="20" v-model.number="fontSizes.input" class="flex-1 accent-indigo-600 bg-slate-200 rounded-lg appearance-none h-1.5">
+                            <div class="flex gap-1">
+                                <button @click="fontSizes.input = Math.max(8, fontSizes.input - 1)" class="w-5 h-5 bg-white border border-slate-205 rounded text-[10px] flex items-center justify-center font-black shadow-inner">-</button>
+                                <button @click="fontSizes.input = Math.min(20, fontSizes.input + 1)" class="w-5 h-5 bg-white border border-slate-205 rounded text-[10px] flex items-center justify-center font-black shadow-inner">+</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 注释说明字号微调 -->
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-[9px] font-black text-slate-500">
+                            <span>规则描述/注释文本大小 (Notes)</span>
+                            <span class="font-bold text-indigo-600">{{ fontSizes.desc }}px</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="range" min="6" max="16" v-model.number="fontSizes.desc" class="flex-1 accent-indigo-600 bg-slate-200 rounded-lg appearance-none h-1.5">
+                            <div class="flex gap-1">
+                                <button @click="fontSizes.desc = Math.max(6, fontSizes.desc - 1)" class="w-5 h-5 bg-white border border-slate-205 rounded text-[10px] flex items-center justify-center font-black shadow-inner">-</button>
+                                <button @click="fontSizes.desc = Math.min(16, fontSizes.desc + 1)" class="w-5 h-5 bg-white border border-slate-205 rounded text-[10px] flex items-center justify-center font-black shadow-inner">+</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- B、角色卡数据无损备份导入/导出控制台 -->
+            <section class="bg-indigo-50/50 p-5 rounded-[2.5rem] border border-indigo-100 shadow-xl space-y-3 transition-all text-left">
+                <div class="flex justify-between items-center px-1">
+                    <p class="text-[10px] font-black text-indigo-600 uppercase tracking-widest leading-none">Data Transfer / 数据交换矩阵</p>
+                    <span class="text-[7px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-black font-sans leading-none">JSON备份</span>
+                </div>
+                <textarea v-model="exportDataStr" placeholder="点击下方「导出数据」可在此生成 JSON 备份数据；或在此粘贴已有数据后点击「导入数据」更新卡面..."
+                          class="w-full bg-white border border-indigo-100 rounded-2xl p-3 text-[9px] font-mono text-slate-655 outline-none h-20 leading-relaxed shadow-inner"></textarea>
+                <div class="grid grid-cols-3 gap-2">
+                    <button @click="exportCard" class="py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl text-[10px] shadow transition-all transform active:scale-95">
+                        导出数据
+                    </button>
+                    <button @click="importCard" class="py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-2xl text-[10px] shadow transition-all transform active:scale-95">
+                        导入数据
+                    </button>
+                    <button @click="copyToClipboard" class="py-3 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-2xl text-[10px] shadow transition-all transform active:scale-95">
+                        一键复制
+                    </button>
+                </div>
+            </section>
+
+            <!-- C、图像生成按钮（右侧并列） -->
+            <div class="bg-rose-50/30 p-5 rounded-[2.5rem] border border-rose-100/50 shadow-xl flex flex-col justify-center space-y-4 text-left">
+                <div class="px-1 space-y-1">
+                    <p class="text-[10px] font-black text-rose-600 uppercase tracking-widest leading-none">EXPORT PLATFORM / 跨平台排版输出终端</p>
+                    <p class="text-[9px] text-slate-400 font-medium">电脑端将自动在截图中隐默战损模块并绘制高清海报；支持全自适应，长按即可保存！</p>
+                </div>
+                <button @click="generateLongImage" :disabled="isGenerating"
+                        class="w-full py-5 bg-gradient-to-r from-pink-500 via-rose-500 to-red-500 hover:from-pink-600 hover:to-red-600 text-white font-black rounded-3xl text-sm shadow-xl transition-all transform active:scale-95 flex items-center justify-center gap-2">
+                    <span v-if="isGenerating" class="flex items-center gap-1.5 animate-pulse">
+                        ⏳ 正在智能绘制矢量级超清图像...
+                    </span>
+                    <span v-else class="flex items-center gap-1.5 animate-none">
+                        📸 截图并导出 NPC 数据卡
+                    </span>
+                </button>
+            </div>
+        </div>
+
+        <!-- 8、全屏保存/长按提示弹窗层 -->
+        <div v-if="showImageModal" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex flex-col justify-center items-center p-4">
+            <div class="bg-white rounded-[2rem] w-full max-w-2xl overflow-hidden p-6 space-y-4 flex flex-col max-h-[85vh] shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative">
+                <button @click="showImageModal = false" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-505 font-bold hover:bg-slate-205">×</button>
+
+                <h3 class="text-center font-black text-slate-800 text-sm tracking-wider uppercase leading-none mt-1">✨ 已为您成功绘制长图 ✨</h3>
+                <p class="text-[9px] text-center text-rose-550 font-bold bg-rose-50 py-1.5 px-3 rounded-xl leading-relaxed">
+                    手机端请「长按图片」并选择【保存到相册】；电脑端测试可直接点击下方【保存到本地】！本工具由 Lis Sokolov 提供，遵循开源协议共享。
+                </p>
+
+                <!-- 高分辨率预览展示 -->
+                <div class="flex-1 overflow-y-auto border-2 border-slate-105 rounded-2xl flex justify-center bg-slate-50 shadow-inner p-2">
+                    <img :src="longImageBase64" class="max-w-full h-auto object-contain cursor-pointer" alt="FU character card">
+                </div>
+
+                <div class="flex gap-2">
+                    <button @click="downloadLongImage" class="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl text-[10px] shadow transition-all active:scale-95">
+                        保存到本地
+                    </button>
+                    <button @click="showImageModal = false" class="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-black rounded-2xl text-[10px] transition-all">
+                        返回制卡器
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // ========================================================================================
+        // 本 最终物语 NPC 制作器 由 Lis Sokolov 开发，使用AI进行代码辅助，该制作器与源码基于CC4.0-BY-NC-SA协议开源共享。
+        // ========================================================================================
+        const { createApp, ref, computed, watch, reactive } = Vue
+        createApp({
+            setup() {
+                const name = ref(""); const level = ref(5);
+                const rank = ref('minor'); const generalX = ref(2);
+                const selectedSpeciesKey = ref('humanoid');
+                const statNames = { dex: '敏捷', ins: '洞察', mig: '力量', wil: '意志' };
+                const templates = { '多面手': [8, 8, 8, 8], '标准': [10, 8, 8, 6], '专精': [10, 10, 6, 6], '超级专精': [12, 8, 6, 6] };
+                const selectedTemplateName = ref('多面手');
+                const assignments = reactive({ dex: 0, ins: 1, mig: 2, wil: 3 });
+                const upgrades = reactive({ dex: 0, ins: 0, mig: 0, wil: 0 });
+
+                // 新增的自定义技能数据存储映射，key绑定卡槽索引 (确保支持多重复写填报)
+                const customSkillsMap = reactive({});
+
+                // 全局三大分类字号矩阵
+                const fontSizes = reactive({
+                    title: 10,  // 标题/栏目总标识
+                    input: 11,  // 输入框/下拉框/属性数值
+                    desc: 9     // 特性规则/技能明文解释
+                });
+
+                // 实时战损登记响应参数（已损失HP/MP）
+                const lostHP = ref(0);
+                const lostMP = ref(0);
+
+                // 特性弱点算SP的滑动开关（默认开启）
+                const speciesWeaknessHasSP = ref(true);
+
+                const statuses = reactive({ slow: false, shaken: false, weak: false, dazed: false, enraged: false, poisoned: false });
+                const statusList = [
+                    { name: '迟缓', key: 'slow', desc: 'DEX-1' }, { name: '动摇', key: 'shaken', desc: 'WIL-1' },
+                    { name: '虚弱', key: 'weak', desc: 'MIG-1' }, { name: '眩晕', key: 'dazed', desc: 'INS-1' },
+                    { name: '激怒', key: 'enraged', desc: 'DEX/INS-1' }, { name: '中毒', key: 'poisoned', desc: 'MIG/WIL-1' }
+                ];
+                const adjustments = reactive({ hp: 0, mp: 0, def: 0, mdef: 0, init: 0, acc: 0 });
+                const affinities = reactive({});
+                ['物理', '风', '雷', '火', '冰', '土', '光', '暗', '毒'].forEach(a => affinities[a] = { type: '正常', label: '正常' });
+
+                const chosenSkills = ref([]);
+                const chosenSpells = ref([]);
+                const equipment = reactive({ '主手': '', '副手': '', '饰品': '', '防具': '', 'traits': '' });
+
+                const combatText = reactive({
+                    basicAttacks: '',
+                    spellSkillDetails: '',
+                    otherActions: '',
+                    specialRules: ''
+                });
+
+                const exportDataStr = ref("");
+                const isGenerating = ref(false);
+                const showImageModal = ref(false);
+                const longImageBase64 = ref("");
+
+                // CSV 直接载入 - NPC技能数据库
+                const skillBank = [
+                    { name: "危机效果", desc: "若处于危机状态，该生物获得特殊修正值或能力。示例：1、NPC的伤害相性改变。2、NPC造成的伤害可以无视抵抗（甚至无视免疫）。3、NPC的一种或多种攻击方式获得多重攻击（2）特性。" },
+                    { name: "伤害吸收", desc: "选择NPC已经具有抵抗或免疫相性的一种伤害类型，使其能够吸收该伤害类型。此技能非常适合元素生物。但同时此技能应该也让该生物额外获得一到两种弱点。" },
+                    { name: "伤害免疫", desc: "NPC对你所选择且不具有弱点的一种伤害类型免疫。谨慎赋予物理免疫。" },
+                    { name: "伤害抵抗", desc: "NPC对你所选择的两种伤害类型获得抵抗相性。若你选择了NPC的弱点，则改写为直接抵消该弱点。" },
+                    { name: "最后一搏（限制）", desc: "当HP降为O时，NPC可以执行某个特殊行动或攻击。经典案例是爆炸的自毁机器人等。" },
+                    { name: "飞行（限制）", desc: "NPC拥有飞行或浮空的能力。仅最显而易见的机动性优势之外，物理和近战防空受阻。如受弱点伤害则被迫下坠，坠地失去该技能至回合结束。" },
+                    { name: "强化伤害", desc: "选择该NPC的一种攻击方式或法术，使其可以造成5点额外伤害。" },
+                    { name: "强化防御", desc: "选择获得[+2物防/+1魔防]或[+1物防/+2魔防]。限学二次，可与装备技能叠加。" },
+                    { name: "强化生命", desc: "NPC的最大生命值增加10点。适合低防或有属性弱点生物。" },
+                    { name: "强化先攻（限制）", desc: "NPC先攻修正值获得+4。" },
+                    { name: "反应", desc: "对特定条件做出反应（如闪躲后反击，或被弱点命中后转换相性）。" },
+                    { name: "特殊攻击", desc: "添加多重(2)、或者攻击穿透物理打魔防，或者命中附带异常，或者给怪物捕获、吸血等机制。" },
+                    { name: "专精", desc: "命中检定、施法或对抗获得+3。最多3次，每次选择不同检定类型。" },
+                    { name: "施法者", desc: "学会一个法术且MP增加10点，或者学会两个法术。每次习得解锁2个格子。" },
+                    { name: "异常状态免疫", desc: "NPC对你所选的任意两种异常状态免疫。" },
+                    { name: "特殊行动", desc: "NPC可以执行特定技能行动，凝聚下次10伤，或者是进入特定战斗姿态或改变相性。" },
+                    { name: "使用装备（限制）", desc: "NPC获得一个饰品栏位，一个防具栏位，一个主手栏位，以及一个副手栏位。" }
+                ];
+
+                const skillDescriptions = computed(() => {
+                    const map = {};
+                    skillBank.forEach(s => map[s.name] = s.desc);
+                    return map;
+                });
+
+                // CSV 直接载入 - NPC法术数据库
+                const spellBank = [
+                    { name: "范围异常", mp: "20", target: "特殊", duration: "瞬发", effect: "选择你可见的任意数量 of 生物，对他们施加（选择一项：迟缓、动摇、虚弱或眩晕）" },
+                    { name: "吐息⚡", mp: "5", target: "一个生物", duration: "瞬发", effect: "你对目标造成【HR+10】的（选择伤害类型）伤害" },
+                    { name: "诅咒⚡", mp: "5", target: "一个生物", duration: "瞬发", effect: "对目标施加（选择一项：迟缓、动摇、虚弱或眩晕）" },
+                    { name: "恶毒诅咒⚡", mp: "10", target: "一个生物", duration: "瞬发", effect: "对目标施加（选择两项：迟缓、动摇、虚弱或眩晕）" },
+                    { name: "诅咒吐息⚡", mp: "10", target: "一个生物", duration: "瞬发", effect: "你对目标造成【HR+15】的（选择伤害类型）伤害，并对目标施加（选择一项：迟缓、动摇、虚弱或眩晕）" },
+                    { name: "毁灭", mp: "30", target: "特殊", duration: "瞬发", effect: "你对你所能看见的每个敌人均造成30点选择伤害。限Lv30+且在大将或精英制造最后一回合施放。" },
+                    { name: "舔舐伤口", mp: "5", target: "自身", duration: "瞬发", effect: "恢复20点HP（根据Lv20/40/60，分别增加至30/40/50点）。" },
+                    { name: "偷取生命⚡", mp: "10", target: "一个生物", duration: "瞬发", effect: "你对目标造成【HR+15】（选择伤害类型）伤害，然后自我回复总伤害量一半生命值。" },
+                    { name: "偷取精神⚡", mp: "10", target: "一个生物", duration: "瞬发", effect: "你对目标造成【HR+15】（选择伤害类型）伤害，然后自我回复总伤害量一半精神值。" },
+                    { name: "侵染⚡", mp: "10×目", target: "至多三物", duration: "瞬发", effect: "对被选中的每个目标物均造成中毒状态。" },
+                    { name: "抢攻", mp: "20", target: "一个生物", duration: "瞬发", effect: "目标可以使用武器进行一次攻击行动。" },
+                    { name: "暴怒⚡", mp: "10×目", target: "至多三物", duration: "瞬发", effect: "对被选中的每个目标物均造成激怒状态。" },
+                    { name: "硬壳", mp: "10", target: "自身", duration: "场景", effect: "对物理伤害获得抵抗相性，持续到法术结束。" },
+                    { name: "战吼", mp: "10×目", target: "至多三物", duration: "场景", effect: "受术者命中检定获得+1修正值至法术结束。" },
+                    { name: "削弱⚡", mp: "10", target: "一个生物", duration: "场景", effect: "任何对目标造成（选择伤害类型）伤害 of 来源均会对目标造成5点额外伤害。" }
+                ];
+
+                const speciesData = {
+                    humanoid: {
+                        name: '人形',
+                        skill: 3,
+                        desc: '这种类型的涵盖范围很广，指的是一切群居、身体形态类似人类、会使用工具和装备的智慧生物。',
+                        rule: '自动且无偿获取无消耗的【使用装备】特专被动技能。'
+                    },
+                    beast: {
+                        name: '野兽',
+                        skill: 4,
+                        desc: '野兽是充满野性、拥有动物般智力的生物。它们的外形时常会因为受到魔法影响而变异，其中部分野兽甚至还能施放法术。',
+                        rule: '由于灵活性和野性限制，野兽无法习得【使用装备（限制）】技能。'
+                    },
+                    construct: {
+                        name: '构装体',
+                        skill: 2,
+                        desc: '构装体是由灵魂能量驱动的人造生命，通常是由炼金术士、法师或科学家所打造。',
+                        rule: '免疫毒系伤害，对土系伤害具有抵抗相性，且免疫【中毒】异常状态。'
+                    },
+                    demon: {
+                        name: '恶魔',
+                        skill: 3,
+                        desc: '恶魔是传说和信仰中邪恶力量的化身。尽管拥有实体，但它们并非真正的活物。有的恶魔甚至会在被杀死后重生。',
+                        rule: '恶魔对两种伤害类型具有抵抗相性（需手动在底下抗性面板处分配）。'
+                    },
+                    element: {
+                        name: '元素',
+                        skill: 2,
+                        desc: '元素生物是自然之力的实体显现形态。部分元素生物具有感知能力，但大多数都缺乏思维能力。',
+                        rule: '免疫毒系伤害和另一种伤害类型，且免疫【中毒】异常状态。'
+                    },
+                    monster: {
+                        name: '怪物',
+                        skill: 4,
+                        desc: '怪物大多是魔法怪兽，通常拥有极高智力，并掌握超自然力量。它们的外形通常非常怪异。',
+                        rule: '怪物极为百搭，没有任何特性限制规则。'
+                    },
+                    plant: {
+                        name: '植物',
+                        skill: 3,
+                        desc: '这里所说的植物类别当然不是普通的花草树木，而是由于变异或魔法而进化成为了危险的掠食者。',
+                        rule: '免疫眩晕、动摇和激怒，但对（物理/风/雷/火/冰/土/光/暗/毒）其中之一具有特性弱点。'
+                    },
+                    undead: {
+                        name: '不死族',
+                        skill: 2,
+                        desc: '不死族可能是通过魔法唤醒的死尸，或是无法正常回归灵魂之河的鬼魂。',
+                        rule: '免疫暗系和毒系伤害，免疫中毒状态，但对光系伤害具有弱点。此外治疗法术对其有反噬效果。'
+                    }
+                };
+
+                // 核心解耦计算逻辑 ------------------------------------------------
+
+                const baseStats = computed(() => {
+                    const pool = templates[selectedTemplateName.value];
+                    return {
+                        dex: Math.min(12, pool[assignments.dex] + (upgrades.dex * 2)),
+                        ins: Math.min(12, pool[assignments.ins] + (upgrades.ins * 2)),
+                        mig: Math.min(12, pool[assignments.mig] + (upgrades.mig * 2)),
+                        wil: Math.min(12, pool[assignments.wil] + (upgrades.wil * 2))
+                    }
+                });
+
+                const combatStats = computed(() => {
+                    const stats = { ...baseStats.value };
+                    if (statuses.slow || statuses.enraged) stats.dex -= 2;
+                    if (statuses.dazed || statuses.enraged) stats.ins -= 2;
+                    if (statuses.weak || statuses.poisoned) stats.mig -= 2;
+                    if (statuses.shaken || statuses.poisoned) stats.wil -= 2;
+
+                    Object.keys(stats).forEach(k => stats[k] = Math.max(6, Math.min(12, stats[k])));
+                    return stats;
+                });
+
+                // 绑定末端 HP/MP 调整值
+                const finalHP = computed(() => {
+                    let base = (level.value * 2) + (baseStats.value.mig * 5);
+                    if (rank.value === 'elite') base *= 2;
+                    if (rank.value === 'general') base *= (generalX.value || 1);
+                    return base + (adjustments.hp || 0); // 末端加上手动修正
+                });
+
+                const finalMP = computed(() => {
+                    let base = level.value + (baseStats.value.wil * 5);
+                    if (rank.value === 'general') base *= 2;
+                    return base + (adjustments.mp || 0);
+                });
+
+                // PC 实时生存 HP/MP 动态结算
+                const remainingHP = computed(() => {
+                    return Math.max(0, finalHP.value - (lostHP.value || 0));
+                });
+                const remainingMP = computed(() => {
+                    return Math.max(0, finalMP.value - (lostMP.value || 0));
+                });
+
+                // HP 低于危机值（低于 1/2 判定）
+                const isHPCrisis = computed(() => {
+                    if (finalHP.value <= 0) return false;
+                    return remainingHP.value <= Math.floor(finalHP.value / 2);
+                });
+
+                const totalSkillPoints = computed(() => {
+                    let sp = (speciesData[selectedSpeciesKey.value]?.skill || 0) + Math.floor(level.value / 10);
+
+                    // 判定是否统计伤害弱点的额外 SP
+                    let affinitySP = 0;
+                    Object.keys(affinities).forEach(a => {
+                        if (affinities[a].type === 'Vu') {
+                            affinitySP += (a === '物理' ? 2 : 1);
+                        }
+                    });
+
+                    // 1. 若选择“关闭物种特性弱点算SP”开关，在计算额外 SP 时扣除非手填产生特质的弱点
+                    if (!speciesWeaknessHasSP.value) {
+                        const spKey = selectedSpeciesKey.value;
+                        if (spKey === 'undead') {
+                            if (affinities['光']?.type === 'Vu') affinitySP -= 1; // 扣除光弱点
+                        } else if (spKey === 'plant') {
+                            // 植物有其一弱点，检测到风雷火冰 Vu 则排除首个
+                            const plantEles = ['风', '雷', '火', '冰'];
+                            const hasPlantVu = plantEles.some(el => affinities[el]?.type === 'Vu');
+                            if (hasPlantVu) affinitySP -= 1;
+                        }
+                    }
+
+                    sp += affinitySP;
+
+                    if (rank.value === 'elite') sp += 1;
+                    if (rank.value === 'general') sp += generalX.value;
+                    return sp;
+                });
+
+                const spellSlotCount = computed(() => {
+                    return chosenSkills.value.filter(s => s === '施法者').length * 2;
+                });
+
+                const showEquipmentSection = computed(() => {
+                    // 人形自带装备，或者其他物种花费 SP 学会了
+                    return selectedSpeciesKey.value === 'humanoid' || chosenSkills.value.includes('使用装备（限制）');
+                });
+
+                watch(totalSkillPoints, (n) => {
+                    while (chosenSkills.value.length < n) chosenSkills.value.push("");
+                    if (chosenSkills.value.length > n) chosenSkills.value.length = n;
+                }, { immediate: true });
+
+                watch(spellSlotCount, (n) => {
+                    while (chosenSpells.value.length < n) {
+                        chosenSpells.value.push({
+                            selectedName: '',
+                            customName: '自定义法术',
+                            mp: '10',
+                            target: '一个目标',
+                            duration: '瞬发',
+                            effect: '写入你的自定义规则与伤害逻辑...'
+                        });
+                    }
+                    if (chosenSpells.value.length > n) {
+                        chosenSpells.value.length = n;
+                    }
+                }, { immediate: true });
+
+                // 自定义被动技能沙盒工厂安全初始化
+                const ensureCustomSkillInit = (idx) => {
+                    if (!customSkillsMap[idx]) {
+                        customSkillsMap[idx] = {
+                            name: '自定义被动',
+                            desc: '在此处填写该技能的具体规则判定细节与特殊被动加成逻辑。'
+                        };
+                    }
+                    return true;
+                };
+
+                const onSkillSelectChange = (idx) => {
+                    const selectVal = chosenSkills.value[idx];
+                    if (selectVal === 'CUSTOM') {
+                        ensureCustomSkillInit(idx);
+                    }
+                };
+
+                // 核心导入与导出算法 ----------------------------------------------------
+                const exportCard = () => {
+                    const dataPackage = {
+                        name: name.value,
+                        level: level.value,
+                        rank: rank.value,
+                        generalX: generalX.value,
+                        selectedSpeciesKey: selectedSpeciesKey.value,
+                        selectedTemplateName: selectedTemplateName.value,
+                        assignments: { ...assignments },
+                        upgrades: { ...upgrades },
+                        statuses: { ...statuses },
+                        adjustments: { ...adjustments },
+                        affinities: { ...affinities },
+                        equipment: { ...equipment },
+                        combatText: { ...combatText },
+                        chosenSkills: [...chosenSkills.value],
+                        chosenSpells: JSON.parse(JSON.stringify(chosenSpells.value)),
+                        // 导出备份字号数据
+                        fontSizes: { ...fontSizes },
+                        lostHP: lostHP.value,
+                        lostMP: lostMP.value,
+                        speciesWeaknessHasSP: speciesWeaknessHasSP.value,
+                        // 导出自定义沙盒技能字典
+                        customSkillsMap: JSON.parse(JSON.stringify(customSkillsMap))
+                    };
+                    exportDataStr.value = JSON.stringify(dataPackage, null, 2);
+                };
+
+                const importCard = () => {
+                    if (!exportDataStr.value || exportDataStr.value.trim() === "") {
+                        alert("⚠️ 导入失败：导入控制台文本框内容为空，请输入有效的角色卡数据！");
+                        return;
+                    }
+                    try {
+                        const pack = JSON.parse(exportDataStr.value);
+
+                        if (typeof pack.level === 'undefined' || !pack.name || !pack.assignments || !pack.affinities) {
+                            alert("⚠️ 导入失败：卡片数据残缺，缺少主要计算字段（如名字，属性或相性说明）！");
+                            return;
+                        }
+
+                        name.value = pack.name || "";
+                        level.value = Number(pack.level) || 5;
+                        rank.value = pack.rank || "minor";
+                        generalX.value = Number(pack.generalX) || 2;
+                        selectedSpeciesKey.value = pack.selectedSpeciesKey || "humanoid";
+                        selectedTemplateName.value = pack.selectedTemplateName || "多面手";
+
+                        // 数据恢复导入
+                        lostHP.value = pack.lostHP || 0;
+                        lostMP.value = pack.lostMP || 0;
+                        speciesWeaknessHasSP.value = pack.speciesWeaknessHasSP !== undefined ? pack.speciesWeaknessHasSP : true;
+
+                        if (pack.fontSizes) {
+                            Object.assign(fontSizes, pack.fontSizes);
+                        }
+
+                        // 清空重置并载入沙盒技能
+                        Object.keys(customSkillsMap).forEach(key => delete customSkillsMap[key]);
+                        if (pack.customSkillsMap) {
+                            Object.assign(customSkillsMap, pack.customSkillsMap);
+                        }
+
+                        Object.assign(assignments, pack.assignments);
+                        Object.assign(upgrades, pack.upgrades);
+                        Object.assign(statuses, pack.statuses);
+                        Object.assign(adjustments, pack.adjustments);
+                        Object.assign(equipment, pack.equipment);
+                        Object.assign(combatText, pack.combatText);
+
+                        Object.keys(pack.affinities).forEach(key => {
+                            affinities[key] = pack.affinities[key];
+                        });
+
+                        if (Array.isArray(pack.chosenSkills)) {
+                            chosenSkills.value = pack.chosenSkills;
+                        }
+                        if (Array.isArray(pack.chosenSpells)) {
+                            chosenSpells.value = pack.chosenSpells;
+                        }
+
+                        alert("✅ 恢复成功：角色卡数据与自定义被动技能全量加载覆写完毕！");
+                    } catch (err) {
+                        alert("❌ 导入失败：解析 JSON 数据语法时发生错误。\n错误明细：" + err.message);
+                    }
+                };
+
+                const copyToClipboard = () => {
+                    if (!exportDataStr.value) {
+                        alert("⚠️ 复制失败：当前无数据，请先点击「导出数据」生成！");
+                        return;
+                    }
+                    navigator.clipboard.writeText(exportDataStr.value)
+                        .then(() => alert("📋 角色卡 JSON 已成功复制到系统剪贴板！"))
+                        .catch(err => alert("❌ 剪贴板复制失败：" + err));
+                };
+
+                // =================【双栖镜面静态排版引擎】=================
+                const generateLongImage = () => {
+                    if (!window.html2canvas) {
+                        alert("⚠️ html2canvas 正在初始化加载中，请稍候点击...");
+                        return;
+                    }
+                    isGenerating.value = true;
+
+                    const targetElement = document.getElementById("npc-card-capture");
+                    const tempElements = [];
+
+                    // 1. 处理 select
+                    targetElement.querySelectorAll("select").forEach(select => {
+                        const selectedText = select.options[select.selectedIndex]?.text || '';
+                        const span = document.createElement("span");
+
+                        if (!select.value || selectedText.includes("选择词条") || selectedText.includes("请选择") || selectedText.includes("- 请选择")) {
+                            span.innerText = "\u00A0";
+                        } else {
+                            span.innerText = selectedText;
+                        }
+
+                        span.className = select.className + " inline-block";
+
+                        select.style.display = "none";
+                        select.parentNode.insertBefore(span, select);
+
+                        tempElements.push({ span, original: select });
+                    });
+
+                    // 2. 处理 input
+                    targetElement.querySelectorAll("input").forEach(input => {
+                        if (input.type === "button" || input.type === "submit") return;
+
+                        const span = document.createElement("span");
+                        const val = input.value;
+                        const placeholder = input.getAttribute("placeholder") || "";
+
+                        if (val) {
+                            span.innerText = val;
+                        } else if (placeholder) {
+                            span.innerText = placeholder;
+                            span.style.opacity = "0.25";
+                        } else {
+                            span.innerText = "\u00A0";
+                        }
+
+                        span.className = input.className + " inline-block";
+
+                        const compStyle = window.getComputedStyle(input);
+                        span.style.textAlign = compStyle.textAlign;
+                        span.style.color = compStyle.color;
+                        span.style.fontSize = compStyle.fontSize;
+                        span.style.fontWeight = compStyle.fontWeight;
+                        span.style.lineHeight = compStyle.lineHeight;
+
+                        input.style.display = "none";
+                        input.parentNode.insertBefore(span, input);
+
+                        tempElements.push({ span, original: input });
+                    });
+
+                    // 3. 处理 textarea
+                    targetElement.querySelectorAll("textarea").forEach(textarea => {
+                        const div = document.createElement("div");
+                        const val = textarea.value;
+                        const placeholder = textarea.getAttribute("placeholder") || "";
+
+                        if (val) {
+                            div.innerText = val;
+                        } else if (placeholder) {
+                            div.innerText = placeholder;
+                            div.style.opacity = "0.25";
+                        } else {
+                            div.innerText = "\u00A0";
+                        }
+
+                        div.className = textarea.className + " block text-left";
+                        div.style.whiteSpace = "pre-wrap";
+                        div.style.wordBreak = "break-all";
+
+                        const compStyle = window.getComputedStyle(textarea);
+                        div.style.fontSize = compStyle.fontSize;
+                        div.style.fontWeight = compStyle.fontWeight;
+                        div.style.lineHeight = compStyle.lineHeight;
+                        div.style.color = compStyle.color;
+                        div.style.minHeight = compStyle.minHeight;
+
+                        textarea.style.display = "none";
+                        textarea.parentNode.insertBefore(div, textarea);
+
+                        tempElements.push({ span: div, original: textarea });
+                    });
+
+                    // 4. 高采样截取
+                    setTimeout(() => {
+                        window.html2canvas(targetElement, {
+                            scale: 3,
+                            useCORS: true,
+                            allowTaint: true,
+                            backgroundColor: "#ffffff",
+                            logging: false,
+                            scrollX: 0,
+                            scrollY: 0
+                        }).then(canvas => {
+                            const imgBase64 = canvas.toDataURL("image/png");
+                            longImageBase64.value = imgBase64;
+                            showImageModal.value = true;
+                            isGenerating.value = false;
+
+                            tempElements.forEach(item => {
+                                item.original.style.display = "";
+                                item.span.remove();
+                            });
+                        }).catch(error => {
+                            alert("❌ 生成长图时发生意外错误，错误码：" + error.message);
+                            isGenerating.value = false;
+
+                            tempElements.forEach(item => {
+                                item.original.style.display = "";
+                                item.span.remove();
+                            });
+                        });
+                    }, 250);
+                };
+
+                const downloadLongImage = () => {
+                    if (!longImageBase64.value) return;
+                    const aLink = document.createElement("a");
+                    aLink.href = longImageBase64.value;
+                    aLink.download = `FU_NPC_${name.value || '角色'}_Lv${level.value}.png`;
+                    document.body.appendChild(aLink);
+                    aLink.click();
+                    document.body.removeChild(aLink);
+                };
+
+                return {
+                    name, level, rank, generalX, assignments, upgrades, totalSkillPoints, adjustments, statusList, statuses,
+                    baseStats, combatStats, finalHP, finalMP, templates, selectedTemplateName,
+                    selectedSpeciesKey, affinities, speciesData, statNames, skillBank, chosenSkills, skillDescriptions,
+                    spellSlotCount, spellBank, chosenSpells, showEquipmentSection, equipment, combatText,
+                    exportDataStr, exportCard, importCard, copyToClipboard, fontSizes,
+                    // 战损登记响应参数与危机状态判定与沙盒被动函数
+                    lostHP, lostMP, remainingHP, remainingMP, isHPCrisis, speciesWeaknessHasSP,
+                    customSkillsMap, ensureCustomSkillInit, onSkillSelectChange,
+                    longImageBase64, isGenerating, showImageModal, generateLongImage, downloadLongImage,
+                    currentPool: computed(() => templates[selectedTemplateName.value]),
+                    isStatDebuffed: (s) => combatStats.value[s] < baseStats.value[s],
+
+                    isSkillSelectedElsewhere(skillName, currentIdx) {
+                        if (!skillName.includes('限制')) return false;
+                        return chosenSkills.value.some((s, idx) => s === skillName && idx !== currentIdx);
+                    },
+
+                    onSpellSelectChange(idx) {
+                        const slot = chosenSpells.value[idx];
+                        if (slot.selectedName !== 'CUSTOM') {
+                            const refSpell = spellBank.find(s => s.name === slot.selectedName);
+                            if (refSpell) {
+                                slot.customName = refSpell.name;
+                                slot.mp = refSpell.mp;
+                                slot.target = refSpell.target;
+                                slot.duration = refSpell.duration;
+                                slot.effect = refSpell.effect;
+                            }
+                        } else {
+                            slot.customName = '自定义法术';
+                            slot.mp = '10';
+                            slot.target = '一个生物';
+                            slot.duration = '瞬发';
+                            slot.effect = '';
+                        }
+                    },
+
+                    modifyUpgrade(s, d) {
+                        const m = level.value >= 60 ? 3 : (level.value >= 40 ? 2 : (level.value >= 20 ? 1 : 0));
+                        if (d > 0 && (upgrades.dex + upgrades.ins + upgrades.mig + upgrades.wil) < m && baseStats.value[s] < 12) upgrades[s]++;
+                        else if (d < 0 && upgrades[s] > 0) upgrades[s]--;
+                    },
+
+                    availUpgrades: computed(() => level.value >= 60 ? 3 : (level.value >= 40 ? 2 : (level.value >= 20 ? 1 : 0))),
+                    usedUpgrades: computed(() => upgrades.dex + upgrades.ins + upgrades.mig + upgrades.wil),
+
+                    getValue(label) {
+                        const s = combatStats.value;
+                        if (label === '物防') {
+                            const val = adjustments.def || 0;
+                            return `d${s.dex}${val >= 0 ? '+' : ''}${val}`;
+                        }
+                        if (label === '魔防') {
+                            const val = adjustments.mdef || 0;
+                            return `d${s.ins}${val >= 0 ? '+' : ''}${val}`;
+                        }
+                        if (label === '先攻') {
+                            let init = ((s.dex + s.ins) / 2) + (adjustments.init || 0);
+                            if (rank.value === 'elite') init += 2;
+                            if (rank.value === 'general') init += (generalX.value || 2);
+                            return init;
+                        }
+                        if (label === '命中') return `+${Math.floor(level.value / 10) + (adjustments.acc || 0)}`;
+                        if (label === '额外') return `+${level.value >= 60 ? 15 : (level.value >= 40 ? 10 : (level.value >= 20 ? 5 : 0))}`;
+                        if (label === '行动') return rank.value === 'minor' ? '1' : (rank.value === 'elite' ? '2' : (generalX.value || 2));
+                    },
+
+                    getPanelColor: (l) => ({ '先攻': 'text-yellow-400', '行动': 'text-rose-500 font-black' }[l] || 'text-white'),
+                    toggleAffinity(a) {
+                        const flow = ['正常', 'Vu', 'Rs', 'Im', 'Ab']; const labels = ['正常', '弱点', '抵抗', '免疫', '吸收'];
+                        const next = (flow.indexOf(affinities[a].type) + 1) % flow.length;
+                        affinities[a].type = flow[next]; affinities[a].label = labels[next];
+                    },
+                    getAffinityClass: (a) => ({ '正常': 'af-normal', 'Vu': 'af-weak', 'Rs': 'af-resist', 'Im': 'af-immune', 'Ab': 'af-absorb' }[affinities[a].type]),
+
+                    isStatusDisabled(sKey) {
+                        const sp = selectedSpeciesKey.value;
+                        if (['construct', 'element', 'undead'].includes(sp) && sKey === 'poisoned') return true;
+                        if (sp === 'plant' && ['dazed', 'shaken', 'enraged'].includes(sKey)) return true;
+                        return false;
+                    },
+
+                    handleSpeciesChange() {
+                        const sp = selectedSpeciesKey.value;
+
+                        // 重置全部抗性
+                        Object.keys(affinities).forEach(a => {
+                            affinities[a].type = '正常';
+                            affinities[a].label = '正常';
+                        });
+
+                        // 1. 物种相性自动映射
+                        if (sp === 'undead') {
+                            affinities['光'].type = 'Vu'; affinities['光'].label = '弱点';
+                            affinities['暗'].type = 'Im'; affinities['暗'].label = '免疫';
+                            affinities['毒'].type = 'Im'; affinities['毒'].label = '免疫';
+                        } else if (sp === 'construct') {
+                            affinities['土'].type = 'Rs'; affinities['土'].label = '抵抗';
+                            affinities['毒'].type = 'Im'; affinities['毒'].label = '免疫';
+                        } else if (sp === 'element') {
+                            affinities['毒'].type = 'Im'; affinities['毒'].label = '免疫';
+                        } else if (sp === 'plant') {
+                            affinities['风'].type = 'Vu'; affinities['风'].label = '弱点'; // 特性默认弱点其一设为风
+                        }
+
+                        // 2. 异常自动消除联动保护
+                        if (['construct', 'element', 'undead'].includes(sp)) {
+                            statuses.poisoned = false;
+                        }
+                        if (sp === 'plant') {
+                            statuses.dazed = false;
+                            statuses.shaken = false;
+                            statuses.enraged = false;
+                        }
+
+                        // 3. 野兽强制消除已选“使用装备”技能，避归溢出
+                        if (sp === 'beast') {
+                            chosenSkills.value = chosenSkills.value.map(s => s === '使用装备（限制）' ? '' : s);
+                        }
+                    }
+                }
+            }
+        }).mount('#app')
+    </script>
+</body>
+</html>
