@@ -1,0 +1,1548 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>最终物语 - 交互式营地管理器 v1.4.2</title>
+    <!-- 引入 Tailwind CSS 与 FontAwesome 图标 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&family=Outfit:wght@400;600;800&display=swap');
+
+        :root {
+            --fu-bright-bg: #eceff4; /* 极浅灰蓝底色 */
+            --fu-card-bg: #ffffff; /* 纯白卡片 */
+            --fu-text-dark: #1e293b; /* 深灰文本 */
+            --fu-text-muted: #64748b; /* 中灰辅助字 */
+            --fu-border: #e2e8f0; /* 极浅边框 */
+            /* 核心亮色调 */
+            --fu-violet: #5856d6; /* 丁香紫 */
+            --fu-emerald: #00b074; /* 翡翠绿 */
+            --fu-amber: #f59e0b; /* 暖橙 */
+            --fu-rose: #e11d48; /* 树莓红 */
+            --fu-blue: #1a8ffb; /* 天蓝色 */
+
+            --fu-header-bg: #161e2e; /* 顶部深色背景 */
+        }
+
+        body {
+            font-family: 'Outfit', 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+            background-color: var(--fu-bright-bg);
+            color: var(--fu-text-dark);
+        }
+
+        /* 强力字体覆盖规则：确保全局 JRPG 字形完全统一 */
+        input, select, textarea, button {
+            font-family: 'Outfit', 'Noto Sans SC', system-ui, -apple-system, sans-serif !important;
+        }
+
+        /* 仿截图白底柔和阴影卡片 */
+        .camp-card {
+            background-color: var(--fu-card-bg);
+            border: 1px solid var(--fu-border);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(165, 175, 195, 0.16);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+            .camp-card:hover {
+                box-shadow: 0 6px 24px rgba(165, 175, 195, 0.25);
+            }
+
+        /* 区块竖条装饰线 */
+        .deco-line {
+            border-left: 4px solid #1e293b;
+            padding-left: 8px;
+        }
+
+        /* 命刻格子交互 */
+        .clock-node {
+            width: 22px;
+            height: 22px;
+            border: 2px solid #cbd5e1;
+            background-color: #f8fafc;
+            transform: rotate(45deg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .clock-node-inner {
+            width: 10px;
+            height: 10px;
+            background-color: transparent;
+            transition: all 0.2s ease;
+        }
+
+        .clock-node.active {
+            border-color: var(--fu-violet);
+        }
+
+            .clock-node.active .clock-node-inner {
+                background-color: var(--fu-violet);
+            }
+
+        /* 页签样式 */
+        .flat-tab {
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+            .flat-tab.active {
+                border-bottom-color: var(--fu-violet);
+                color: var(--fu-violet);
+                font-weight: 800;
+            }
+
+        /* 已激活特质胶囊 */
+        .trait-pill {
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            user-select: none;
+        }
+
+            .trait-pill:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+            }
+
+            .trait-pill.active-view {
+                outline: 2px solid var(--fu-violet);
+                outline-offset: 1px;
+                font-weight: 800;
+            }
+
+        /* 悬浮提示：新增 word-break 规避连续非中断字符越界崩溃 */
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+
+            .tooltip .tooltiptext {
+                visibility: hidden;
+                width: 320px;
+                background-color: #1e293b;
+                color: #f8fafc;
+                text-align: left;
+                border-radius: 8px;
+                padding: 12px 14px;
+                position: absolute;
+                z-index: 50;
+                bottom: 125%;
+                left: 50%;
+                margin-left: -160px;
+                opacity: 0;
+                transition: opacity 0.3s;
+                font-size: 0.75rem;
+                line-height: 1.4;
+                box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+                font-weight: 500;
+                pointer-events: none;
+                /* 新增下面两条属性，强制所有内容在边界内折行 */
+                word-break: break-all !important;
+                overflow-wrap: break-word !important;
+            }
+
+            .tooltip:hover .tooltiptext {
+                visibility: visible;
+                opacity: 1;
+            }
+
+            .tooltip .tooltiptext::after {
+                content: "";
+                position: absolute;
+                top: 100%;
+                left: 50%;
+                margin-left: -5px;
+                border-width: 5px;
+                border-style: solid;
+                border-color: #1e293b transparent transparent transparent;
+            }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--fu-violet) !important;
+            box-shadow: 0 0 0 3px rgba(88, 86, 214, 0.12);
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <!-- 1. 顶部深色头部 Banner -->
+    <header class="max-w-7xl mx-auto mb-8 bg-[#161e2e] text-white p-6 rounded-2xl shadow-xl flex flex-col md:flex-row justify-between items-center relative overflow-hidden">
+        <div class="z-10 w-full md:w-auto">
+            <div class="flex items-center gap-2 mb-2">
+                <span class="bg-[#e11d48] text-white text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">CAMP WORKsheet</span>
+                <span class="text-xs text-slate-400">Ver 1.4.2-BreakOptimized</span>
+            </div>
+
+            <!-- 营地名字输入框 -->
+            <div class="relative w-full md:w-80">
+                <input type="text" id="camp-name" placeholder="点击命名您的生存营地..."
+                       class="w-full bg-transparent text-xl font-bold border-b border-slate-600 focus:border-white focus:outline-none pb-1 placeholder-slate-500"
+                       oninput="saveData()" />
+                <p class="text-[9px] text-[#00b074] uppercase tracking-widest mt-1">CAMP NAME & LEGEND DESIGNATION</p>
+            </div>
+        </div>
+
+        <!-- 右侧指标显示面板 -->
+        <div class="flex gap-4 mt-4 md:mt-0 z-10 shrink-0">
+            <div class="bg-[#101726] border border-slate-800 rounded-xl px-6 py-2 text-center min-w-[100px]">
+                <div class="text-[9px] text-slate-400 uppercase font-bold">宜居度进度</div>
+                <div id="top-liv-display" class="text-xl font-extrabold text-[#00b074]">0 / 10</div>
+            </div>
+            <div class="bg-[#101726] border border-slate-800 rounded-xl px-6 py-2 text-center min-w-[100px]">
+                <div class="text-[9px] text-slate-400 uppercase font-bold">后备物资</div>
+                <div id="top-supplies-display" class="text-xl font-extrabold text-amber-500">0</div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 页面主体布局 -->
+    <main class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 pb-12">
+
+        <!-- LEFT PANEL: 营地状态控制盘 (5/12) -->
+        <section class="lg:col-span-5 flex flex-col gap-6">
+
+            <!-- 繁荣命刻组件 -->
+            <div class="camp-card p-6">
+                <h2 class="deco-line text-xs uppercase tracking-widest text-slate-440 font-extrabold mb-4 flex justify-between items-center">
+                    <span>Column I - PROSPERITY / 繁荣演进</span>
+                    <span class="text-[9px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-black">PHASE</span>
+                </h2>
+
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-[10px] text-slate-500 font-bold uppercase mb-1">营地繁荣阶段</label>
+                        <select id="pros-stage" onchange="updateProsStage()" class="w-full bg-[#f8fafc] border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-700">
+                            <option value="拓荒地">拓荒地 (阶段1)</option>
+                            <option value="安居地">安居地 (阶段2)</option>
+                            <option value="扬名地">扬名地 (阶段3)</option>
+                            <option value="交汇地">交汇地 (阶段4)</option>
+                            <option value="传说地">传说地 (阶段5)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-slate-500 font-bold uppercase mb-1">关键成员上限</label>
+                        <div id="member-cap-badge" class="bg-[#f8fafc] border border-slate-200 rounded-lg px-3 py-2 text-sm font-extrabold text-center text-slate-700">
+                            2 人
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-[#f8fafc] p-3 rounded-lg border border-slate-100 mb-2">
+                    <div class="text-[9px] text-slate-400 font-bold uppercase mb-1">当前阶段叙事描述:</div>
+                    <p id="stage-desc" class="text-xs text-slate-600 leading-relaxed font-medium mb-1">-</p>
+                </div>
+
+                <!-- 繁荣度宿命警示（带有精致关闭按钮） -->
+                <div id="pros-limitbreak-alert" class="hidden mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-rose-605 font-bold flex items-center justify-between gap-1.5 animate-pulse">
+                    <div class="flex items-center gap-1.5 text-rose-600">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <span>提示：突破本繁荣限额，剧情设计上建议去【英豪志】消耗 1 历史点。</span>
+                    </div>
+                    <button onclick="dismissProsAlert(event)" class="text-rose-400 hover:text-rose-800 focus:outline-none px-1.5 py-0.5 rounded transition" title="暂时隐藏此警告">
+                        <i class="fa-solid fa-xmark text-sm"></i>
+                    </button>
+                </div>
+
+                <!-- 菱形命刻 -->
+                <div class="mb-2">
+                    <div class="flex justify-between items-center mb-3">
+                        <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">繁荣命刻进度 (更改繁荣阶段会自动归零)</span>
+                        <span id="pros-clock-text" class="text-xs font-mono font-bold bg-[#cbd5e1]/40 px-2 py-0.5 rounded-full text-slate-700">0 / 4</span>
+                    </div>
+                    <div class="flex justify-start gap-4 py-3 px-3 bg-[#f8fafc] border border-slate-100 rounded-xl overflow-x-auto" id="pros-clock-container">
+                        <!-- 由 JS 渲染 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 宜居度脉搏组件 -->
+            <div class="camp-card p-6">
+                <h2 class="deco-line text-xs uppercase tracking-widest text-slate-440 font-extrabold mb-4 flex justify-between items-center">
+                    <span>Column I - LIVABILITY / 宜居脉搏</span>
+                    <span class="text-[9px] bg-[#00b074]/15 text-[#00b074] px-2 py-0.5 rounded font-black">LIVABILITY</span>
+                </h2>
+
+                <div class="mb-4">
+                    <div class="flex justify-between text-xs font-bold text-slate-600 mb-1">
+                        <span>当前宜居命刻:</span>
+                        <span><strong id="liv-val-display" class="text-[#00b074] text-sm">0</strong> / 10</span>
+                    </div>
+                    <input type="range" id="liv-range" min="0" max="10" value="0" oninput="updateLivability()" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#5856d6]" />
+                </div>
+
+                <!-- 解耦选选择器 -->
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div class="bg-[#f8fafc] p-2.5 border border-slate-100 rounded-lg">
+                        <div class="text-[9px] text-slate-400 uppercase font-bold">营地稳定状态</div>
+                        <div id="liv-status" class="font-extrabold text-[#e11d48] text-sm mt-0.5">-</div>
+                    </div>
+
+                    <div class="bg-[#f8fafc] p-2.5 border border-slate-100 hover:border-[#5856d6]/35 transition rounded-lg flex flex-col justify-between">
+                        <div class="text-[9px] text-slate-500 font-bold uppercase mb-1">常驻居民规模 (与繁荣挂钩)</div>
+                        <select id="resident-scale-select" onchange="saveData()"
+                                class="w-full bg-[#f8fafc] text-xs font-extrabold text-[#5856d6] focus:outline-none cursor-pointer border-none p-0 mt-0.5 m-0 block">
+                            <option value="少量居民">少量居民 (小团体生存)</option>
+                            <option value="一定数量">一定数量 (初步稳定)</option>
+                            <option value="相当数量">相当数量 (区域繁荣)</option>
+                            <option value="大量居民">大量居民 (宏伟都市)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="bg-[#f8fafc] p-3 rounded-lg border border-slate-150">
+                    <!-- 宜居度极低下警示框 -->
+                    <div id="liv-low-warning" class="hidden mb-2 p-2 bg-red-50 border border-red-200 text-rose-600 rounded text-[10px] font-bold">
+                        ⚠️ 经营警告：当前宜居度低下，常驻居民职责可能会面临停摆或规模缩水的风险！
+                    </div>
+                    <div class="text-[9px] font-black text-slate-400 uppercase mb-1">常驻居民带来的经营增益/惩罚:</div>
+                    <p id="liv-effect" class="text-slate-600 text-xs leading-relaxed font-semibold">-</p>
+                </div>
+            </div>
+
+            <!-- 公用资源总库 -->
+            <div class="camp-card p-6">
+                <h2 class="deco-line text-xs uppercase tracking-widest text-[#slate-440] font-extrabold mb-4">Column I - RESOURCES / 营地总合账目</h2>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <!-- 物资 -->
+                    <div class="bg-white border border-slate-200 p-3 rounded-xl flex justify-between items-center shadow-sm">
+                        <div class="tooltip cursor-help flex flex-col justify-center">
+                            <span class="text-[10px] text-slate-400 font-bold uppercase"><i class="fa-solid fa-wheat-awn text-amber-500 mr-1"></i> 物资 SUPPLIES</span>
+                            <span class="tooltiptext">【物资】<br>代表木材、矿石、食物、布料等一切基础物理材料。它是营地建设的基石。</span>
+                            <span id="res-supplies" class="text-xl font-extrabold text-slate-800 font-mono mt-1">0</span>
+                        </div>
+                        <div class="flex flex-col gap-0.5">
+                            <button onclick="adjustResource('supplies', 1)" class="w-6 h-5 bg-[#5856d6]/10 hover:bg-[#5856d6] hover:text-white rounded text-[10px] font-bold text-[#5856d6] transition flex items-center justify-center">+</button>
+                            <button onclick="adjustResource('supplies', -1)" class="w-6 h-5 bg-[#5856d6]/10 hover:bg-[#5856d6] hover:text-white rounded text-[10px] font-bold text-[#5856d6] transition flex items-center justify-center">-</button>
+                        </div>
+                    </div>
+                    <!-- 奥秘 -->
+                    <div class="bg-white border border-slate-200 p-3 rounded-xl flex justify-between items-center shadow-sm">
+                        <div class="tooltip cursor-help flex flex-col justify-center">
+                            <span class="text-[10px] text-slate-400 font-bold uppercase"><i class="fa-solid fa-scroll text-blue-500 mr-1"></i> 奥秘 MYSTERIES</span>
+                            <span class="tooltiptext">【奥秘】<br>代表魔法精华、古代零件、稀有草药、失落知识等超自然或高技术力物品。它是营地突破平凡、走向传奇的关键。</span>
+                            <span id="res-mysteries" class="text-xl font-extrabold text-slate-800 font-mono mt-1">0</span>
+                        </div>
+                        <div class="flex flex-col gap-0.5">
+                            <button onclick="adjustResource('mysteries', 1)" class="w-6 h-5 bg-[#5856d6]/10 hover:bg-[#5856d6] hover:text-white rounded text-[10px] font-bold text-[#5856d6] transition flex items-center justify-center">+</button>
+                            <button onclick="adjustResource('mysteries', -1)" class="w-6 h-5 bg-[#5856d6]/10 hover:bg-[#5856d6] hover:text-white rounded text-[10px] font-bold text-[#5856d6] transition flex items-center justify-center">-</button>
+                        </div>
+                    </div>
+                    <!-- 人脉 -->
+                    <div class="bg-white border border-slate-200 p-3 rounded-xl flex justify-between items-center shadow-sm">
+                        <div class="tooltip cursor-help flex flex-col justify-center">
+                            <span class="text-[10px] text-slate-400 font-bold uppercase"><i class="fa-solid fa-handshake text-[#00b074] mr-1"></i> 人脉 RELATION</span>
+                            <span class="tooltiptext">【人脉】<br>代表声望、情报、劳动力、社会关系等无形资产。它是营地与外部世界沟通的桥梁。</span>
+                            <span id="res-contacts" class="text-xl font-extrabold text-slate-800 font-mono mt-1">0</span>
+                        </div>
+                        <div class="flex flex-col gap-0.5">
+                            <button onclick="adjustResource('contacts', 1)" class="w-6 h-5 bg-[#5856d6]/10 hover:bg-[#5856d6] hover:text-white rounded text-[10px] font-bold text-[#5856d6] transition flex items-center justify-center">+</button>
+                            <button onclick="adjustResource('contacts', -1)" class="w-6 h-5 bg-[#5856d6]/10 hover:bg-[#5856d6] hover:text-white rounded text-[10px] font-bold text-[#5856d6] transition flex items-center justify-center">-</button>
+                        </div>
+                    </div>
+
+                    <!-- 历史点 -->
+                    <div class="bg-[#f0f4ff] border border-blue-200 p-3 rounded-xl flex justify-between items-center shadow-sm">
+                        <div class="tooltip cursor-help flex flex-col justify-center">
+                            <span class="text-[10px] text-[#5856d6] font-bold uppercase"><i class="fa-solid fa-hourglass-half text-blue-500 mr-1"></i> 历史点 HISTORY</span>
+                            <span class="tooltiptext">【历史点】<br>代表营地历史底蕴与传奇色彩。每留下1份传承+1，关键成员3心认同离开额外+1，英勇牺牲额外+1。用于突破繁荣上限、突破建筑上限或召唤传奇回响。</span>
+                            <div class="flex items-baseline gap-1 mt-1">
+                                <span id="res-history" class="text-xl font-extrabold text-slate-800 font-mono">0</span>
+                                <span class="text-[10px] text-slate-400 font-normal">可用</span>
+                            </div>
+                        </div>
+                        <div class="flex flex-col gap-0.5">
+                            <button onclick="adjustHistoryCorrection(1)" class="w-6 h-5 bg-[#5856d6]/10 hover:bg-[#5856d6] hover:text-white rounded text-[10px] font-bold text-[#5856d6] transition flex items-center justify-center" title="人工添加剧情点">+</button>
+                            <button onclick="adjustHistoryCorrection(-1)" class="w-6 h-5 bg-[#5856d6]/10 hover:bg-[#5856d6] hover:text-white rounded text-[10px] font-bold text-[#5856d6] transition flex items-center justify-center" title="减少点数">-</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- RIGHT PANEL: JRPG简约白底标签详情区 (7/12) -->
+        <section class="lg:col-span-7 flex flex-col gap-6">
+
+            <!-- 选项卡选择器 -->
+            <nav class="flex border-b border-slate-200 gap-6 overflow-x-auto text-sm font-bold text-slate-400 px-2 font-mono">
+                <button id="tab-btn-rule" onclick="switchTab('rule')" class="py-3 flat-tab active flex items-center gap-2">
+                    Column II - CAMPERY / 生效特质字典
+                </button>
+                <button id="tab-btn-members" onclick="switchTab('members')" class="py-3 flat-tab flex items-center gap-2">
+                    Column II - LEGION / 成员与营地建筑
+                </button>
+                <button id="tab-btn-inheritance" onclick="switchTab('inheritance')" class="py-3 flat-tab flex items-center gap-2">
+                    Column III - RECORD / 传世英豪志
+                </button>
+            </nav>
+
+            <!-- TAB 1: 营地规则与已激活特质 -->
+            <div id="tab-field-rule" class="tab-content flex flex-col gap-6">
+                <!-- 战术威胁 -->
+                <div class="camp-card p-6 border-l-4 border-[#e11d48] bg-slate-50">
+                    <h3 class="text-[10px] font-black uppercase tracking-wider text-[#e11d48] mb-1"><i class="fa-solid fa-triangle-exclamation"></i> CURRENT THREAT / 区域战术危机威胁</h3>
+                    <p id="threat-p" class="text-xs text-slate-700 leading-relaxed font-bold">获取中...</p>
+                </div>
+
+                <!-- 居民职责与激活特质 -->
+                <div class="camp-card p-6">
+                    <h2 class="deco-line text-xs uppercase tracking-widest text-[#5856d6] font-bold mb-4">ACTIVATED TRAITS / 营地当前已激活特质</h2>
+
+                    <div class="mb-4">
+                        <label class="block text-[10px] text-slate-500 mb-2 font-bold uppercase">根据当前宜居命刻（已有 <span id="activated-lv-badge" class="font-extrabold text-[#00b074]">0</span> 格），目前已生效特征：</label>
+                        <div id="activated-badges-container" class="flex flex-wrap gap-2 py-2">
+                            <!-- JS 动态灌入特征徽章 -->
+                        </div>
+                    </div>
+
+                    <!-- 动态解释输出屏 -->
+                    <div class="bg-[#f8fafc] p-4 rounded-xl border border-slate-200 min-h-[105px]">
+                        <div id="lexicon-title" class="font-extrabold text-[#5856d6] text-sm mb-1.5 flex items-center gap-2">
+                            <span>请点击上方激活特质查看叙事与效果</span>
+                        </div>
+                        <p id="lexicon-desc" class="text-xs text-slate-600 leading-relaxed font-medium">您可以将鼠标放在特质胶囊标签上进行极速悬浮预览。</p>
+                    </div>
+                </div>
+
+                <!-- 营地外观描述 -->
+                <div class="camp-card p-6">
+                    <h2 class="deco-line text-xs uppercase tracking-widest text-[#00b074] font-bold mb-4"><i class="fa-solid fa-map-location-dot mr-1"></i> GEOGRAPHIC PROFILE / 营地地貌与据点陈设</h2>
+                    <textarea id="camp-desc" rows="6" oninput="saveData()" placeholder="在此处记录营地目前的内部设施、外部防线部署或是重大的战役背景故事..." class="w-full bg-[#f8fafc] border border-slate-200 rounded-xl p-3 text-xs leading-relaxed text-slate-600 placeholder-slate-400"></textarea>
+                </div>
+            </div>
+
+            <!-- TAB 2: 关键成员 & 普通建筑 -->
+            <div id="tab-field-members" class="tab-content hidden flex flex-col gap-6">
+
+                <!-- 建筑子页签 -->
+                <div class="border-b border-slate-200 overflow-x-auto">
+                    <div class="flex gap-2 pb-2">
+                        <button id="tab-btn-core" onclick="switchBuildingTab('core')" class="px-4 py-2 text-xs font-bold border-b-2 border-transparent hover:border-[#5856d6] rounded-t-lg transition">
+                            ★ 专属标志建筑 与 核心成员
+                        </button>
+                        <button id="tab-btn-normal" onclick="switchBuildingTab('normal')" class="px-4 py-2 text-xs font-bold border-b-2 border-transparent hover:border-[#00b074] rounded-t-lg transition">
+                            🏗️ 普通建筑
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 子页一：专属标志建筑与关键成员 -->
+                <div id="building-core-container" class="flex flex-col gap-6">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-[#5856d6]/5 border border-[#5856d6]/10 rounded-xl">
+                        <div class="text-xs text-slate-600 font-bold block">
+                            💡 当期最大允许成员席位：<span id="members-cap-hint" class="font-black text-[#5856d6] text-sm">2</span> 位。
+                            <div class="text-[10px] text-slate-400 mt-0.5">当前在册入驻数：<span id="members-count-hint" class="font-bold text-slate-700">0</span> 人</div>
+                        </div>
+                        <button id="add-member-btn" onclick="addMember()" class="px-4 py-2 bg-[#5856d6] hover:bg-[#5856d6]/90 active:scale-95 text-white text-xs font-black rounded-lg transition-all shadow-sm flex items-center gap-1.5 shrink-0">
+                            <i class="fa-solid fa-plus-circle"></i> 入驻新成员 / 新建关联建筑
+                        </button>
+                    </div>
+
+                    <!-- 动态卡片容器 -->
+                    <div id="member-cards-container" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
+                </div>
+
+                <!-- 子页二：普通建筑栏 -->
+                <div id="building-normal-container" class="hidden flex flex-col gap-6">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-sm font-bold text-slate-700 flex items-center gap-2">
+                            <i class="fa-solid fa-compass-drafting text-[#00b074]"></i> 大本营普通设施备忘录
+                        </h3>
+                        <button onclick="addNormalBuilding()" class="px-3 py-1.5 bg-[#00b074] hover:bg-[#00b074]/90 text-white text-xs font-bold rounded-lg flex items-center gap-1">
+                            <i class="fa-solid fa-plus"></i> 新增普通建筑
+                        </button>
+                    </div>
+                    <div id="normal-buildings-container" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
+                </div>
+
+                <!-- 成员卡模板 -->
+                <template id="member-template">
+                    <div class="member-card camp-card p-5 flex flex-col gap-3">
+                        <div class="flex justify-between items-center border-b border-slate-100 pb-2">
+                            <input type="text" class="m-name bg-transparent border-b border-transparent hover:border-slate-300 font-extrabold text-slate-800 text-sm focus:outline-none w-2/3" placeholder="成员姓名/头衔..." />
+                            <button class="m-delete-btn text-rose-500 hover:text-white px-2 py-0.5 hover:bg-rose-500 rounded text-[10px] font-bold border border-rose-200 transition-all flex items-center gap-1">
+                                <i class="fa-solid fa-trash-can text-[9px]"></i> 遣返移除
+                            </button>
+                        </div>
+
+                        <div>
+                            <label class="block text-[9px] text-slate-400 font-extrabold uppercase mb-0.5">外貌与种族特征</label>
+                            <input type="text" class="m-looks w-full bg-[#f8fafc] border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-700" placeholder="叙述该成员长相..." />
+                        </div>
+
+                        <!-- 认同度显示区域 -->
+                        <div class="p-3 bg-[#f8fafc] rounded-xl border border-slate-150 font-bold">
+                            <div class="flex justify-between items-center mb-1 text-[9px] uppercase">
+                                <span class="text-slate-500 font-extrabold">信任认同度 APPROVAL</span>
+                                <span class="m-approval-score text-[#5856d6] font-bold font-mono">0 / 3</span>
+                            </div>
+                            <input type="range" min="0" max="3" value="0" class="m-approval-range w-full accent-[#5856d6]" />
+
+                            <div class="grid grid-cols-[70px_1fr] gap-3 mt-2 pt-2 border-t border-slate-200/60 text-xs">
+                                <div class="border-r border-slate-200/60 pr-1">
+                                    <span class="text-slate-455 block text-[9px] font-medium leading-none mb-1">关系称号</span>
+                                    <span class="m-approval-title text-[#e11d48] font-bold text-xs leading-none block mt-1">-</span>
+                                </div>
+                                <div class="pl-0.5">
+                                    <span class="text-slate-455 block text-[9px] font-medium leading-none mb-1">认同度效果</span>
+                                    <span class="m-approval-effect text-slate-600 text-[10px] leading-normal font-semibold mt-1 block whitespace-normal break-words" title="">-</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-[9px] text-slate-400 font-extrabold uppercase mb-0.5">精神信仰与核心价值</label>
+                            <input type="text" class="m-value w-full bg-[#f8fafc] border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-700" placeholder="坚持的主张与理念..." />
+                        </div>
+
+                        <div class="p-3 border border-slate-200 rounded-xl bg-white shadow-sm">
+                            <label class="block text-[9px] text-[#f59e0b] font-extrabold uppercase mb-1 flex justify-between items-center">
+                                <span><i class="fa-solid fa-house-medical"></i> 专属标志建筑 BUILD</span>
+                                <span id="m-b-lv-max-text" class="text-[8px] text-slate-400 lowercase">上限依据繁荣阶段变动</span>
+                            </label>
+                            <div class="grid grid-cols-3 gap-2">
+                                <input type="text" class="m-b-name col-span-2 bg-[#f8fafc] border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-700" placeholder="如：大熔炉..." />
+                                <div class="flex items-center gap-1 select-none">
+                                    <span class="text-[9px] text-slate-400 font-bold">MaxLv</span>
+                                    <input type="number" class="m-b-lv w-full bg-[#f8fafc] border border-slate-200 rounded-lg px-1 py-0.5 text-xs text-center font-bold text-[#f59e0b]" min="0" max="10" value="0" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 技能词条 -->
+                        <div class="pt-2 border-t border-slate-100 flex flex-col gap-2">
+                            <div class="text-[9px] text-slate-400 font-black uppercase">技能词条配置 (SPECIAL SKILLS)</div>
+                            <div class="bg-[#f8fafc] p-2.5 rounded-lg flex flex-col gap-1 border border-slate-200">
+                                <div class="flex gap-2">
+                                    <input type="text" class="m-t1-name w-1/2 bg-white border border-slate-200 rounded px-1.5 py-0.5 text-[11px] text-slate-700 font-bold" placeholder="词条A名称" />
+                                    <select class="m-t1-type w-1/2 bg-white border border-slate-200 rounded px-1.5 py-0.5 text-[11px] text-slate-500">
+                                        <option value="功能性">功能性</option>
+                                        <option value="角色型">角色型</option>
+                                        <option value="混合型">混合型</option>
+                                    </select>
+                                </div>
+                                <textarea class="m-t1-desc w-full bg-white border border-slate-200 rounded p-1 text-[10px] text-slate-600 leading-normal" rows="1" placeholder="效果说明..."></textarea>
+                            </div>
+
+                            <div class="bg-[#f8fafc] p-2.5 rounded-lg flex flex-col gap-1 border border-slate-200">
+                                <div class="flex gap-2">
+                                    <input type="text" class="m-t2-name w-1/2 bg-white border border-slate-200 rounded px-1.5 py-0.5 text-[11px] text-slate-700 font-bold" placeholder="词条B名称" />
+                                    <select class="m-t2-type w-1/2 bg-white border border-slate-200 rounded px-1.5 py-0.5 text-[11px] text-slate-500">
+                                        <option value="功能性">功能性</option>
+                                        <option value="角色型">角色型</option>
+                                        <option value="混合型">混合型</option>
+                                    </select>
+                                </div>
+                                <textarea class="m-t2-desc w-full bg-white border border-slate-200 rounded p-1 text-[10px] text-slate-600 leading-normal" rows="1" placeholder="效果说明..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- 普通建筑模板 -->
+                <template id="normal-building-template">
+                    <div class="normal-building-card camp-card p-5 flex flex-col gap-3">
+                        <div class="flex justify-between items-center border-b border-slate-100 pb-2">
+                            <input type="text" class="b-name bg-transparent border-b border-transparent hover:border-slate-300 font-extrabold text-slate-800 text-sm focus:outline-none w-2/3" placeholder="建筑名称..." />
+                            <button class="b-delete-btn text-rose-500 hover:text-white px-2 py-0.5 hover:bg-rose-500 rounded text-[10px] font-bold border border-rose-200 transition-all flex items-center gap-1">
+                                <i class="fa-solid fa-trash-can text-[9px]"></i> 拆除
+                            </button>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-[9px] text-slate-400 font-extrabold uppercase mb-1">成本金币 (💰)</label>
+                                <input type="number" class="b-cost w-full bg-[#f8fafc] border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-700" placeholder="0" min="0" />
+                            </div>
+                            <div class="flex flex-col justify-end">
+                                <div class="text-[9px] text-slate-400 font-bold uppercase mb-1 text-center">基础物理材料</div>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-[9px] text-slate-400 font-extrabold uppercase mb-1">材料需要数量</label>
+                            <div class="grid grid-cols-3 gap-2">
+                                <div class="bg-[#f8fafc] p-1 border border-slate-200 rounded-lg text-center">
+                                    <span class="text-[9px] text-slate-400 block font-bold leading-none mb-1"><i class="fa-solid fa-wheat-awn text-amber-500"></i> 物资</span>
+                                    <input type="number" class="b-supplies w-full bg-white border border-slate-150 rounded text-center text-xs p-0.5 font-bold" value="0" min="0" />
+                                </div>
+                                <div class="bg-[#f8fafc] p-1 border border-slate-200 rounded-lg text-center">
+                                    <span class="text-[9px] text-slate-400 block font-bold leading-none mb-1"><i class="fa-solid fa-scroll text-blue-500"></i> 奥秘</span>
+                                    <input type="number" class="b-mysteries w-full bg-white border border-slate-150 rounded text-center text-xs p-0.5 font-bold" value="0" min="0" />
+                                </div>
+                                <div class="bg-[#f8fafc] p-1 border border-slate-200 rounded-lg text-center">
+                                    <span class="text-[9px] text-slate-400 block font-bold leading-none mb-1"><i class="fa-solid fa-handshake text-[#00b074]"></i> 人脉</span>
+                                    <input type="number" class="b-contacts w-full bg-white border border-slate-150 rounded text-center text-xs p-0.5 font-bold" value="0" min="0" />
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-[9px] text-slate-400 font-extrabold uppercase mb-1">叙事功能与特效</label>
+                            <textarea class="b-narrative w-full bg-[#f8fafc] border border-slate-200 rounded-lg p-2 text-xs text-slate-600 leading-normal" rows="2" placeholder="描写建筑带来的战术或叙事收益..."></textarea>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- TAB 3: 传承与历史记录 -->
+            <div id="tab-field-inheritance" class="tab-content hidden flex flex-col gap-6">
+                <!-- 历史点调度中心 -->
+                <div class="camp-card p-6 bg-gradient-to-br from-[#f0f4ff] to-[#ffffff] border border-blue-100 flex flex-col gap-4">
+                    <h3 class="text-xs font-black uppercase text-[#5856d6] tracking-widest flex justify-between items-center">
+                        <span><i class="fa-solid fa-hourglass-half"></i> 营地底蕴与传奇回响调度中心 (HISTORY DISPATCHER)</span>
+                        <span class="text-[9px] bg-[#5856d6] text-white px-2 py-0.5 rounded font-black">SYSTEM</span>
+                    </h3>
+
+                    <!-- 历史点明细仪表盘 -->
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 text-center">
+                        <div class="bg-white p-2.5 border border-slate-200/80 rounded-xl shadow-xs">
+                            <span class="text-[9px] text-slate-400 block leading-none mb-1">传承基底</span>
+                            <span id="calc-base" class="text-base font-extrabold text-slate-700 font-mono">0</span>
+                        </div>
+                        <div class="bg-white p-2.5 border border-slate-200/80 rounded-xl shadow-xs">
+                            <span class="text-[9px] text-slate-400 block leading-none mb-1">3心认同奖励</span>
+                            <span id="calc-approval" class="text-base font-extrabold text-[#00b074] font-mono">+0</span>
+                        </div>
+                        <div class="bg-white p-2.5 border border-slate-200/80 rounded-xl shadow-xs">
+                            <span class="text-[9px] text-slate-400 block leading-none mb-1">英勇牺牲额外</span>
+                            <span id="calc-sacrifice" class="text-base font-extrabold text-rose-500 font-mono">+0</span>
+                        </div>
+                        <div class="bg-white p-2.5 border border-slate-200/80 rounded-xl shadow-xs">
+                            <span class="text-[9px] text-slate-400 block leading-none mb-1">人工/剧情调整</span>
+                            <span id="calc-adjust" class="text-base font-extrabold text-amber-500 font-mono">+0</span>
+                        </div>
+                        <div class="bg-[#5856d6]/5 p-2.5 border border-[#5856d6]/20 rounded-xl shadow-xs col-span-2 md:col-span-1">
+                            <span class="text-[9px] text-[#5856d6] block font-bold leading-none mb-1">可动用点数</span>
+                            <span id="calc-available" class="text-lg font-black text-[#5856d6] font-mono">0</span>
+                        </div>
+                    </div>
+
+                    <!-- 操作控制箱 -->
+                    <div class="flex flex-wrap gap-2.5 pt-1.5 border-t border-slate-250/30">
+                        <button onclick="triggerLimitBreakBuilding()" class="flex-1 min-w-[150px] py-2 bg-[#5856d6] hover:bg-[#5856d6]/90 active:scale-95 text-white text-xs font-black rounded-lg transition shadow-xs flex items-center justify-center gap-1">
+                            <i class="fa-solid fa-circle-chevron-up"></i> 消耗1点：永久突破标志建筑等级+1 (现已累加: <span id="lbl-lbl" class="underline">0</span>)
+                        </button>
+                        <button onclick="triggerEcho()" class="flex-1 min-w-[155px] py-2 bg-[#00b074] hover:bg-[#00b074]/90 active:scale-95 text-white text-xs font-black rounded-lg transition shadow-xs flex items-center justify-center gap-1">
+                            <i class="fa-solid fa-bullhorn"></i> 消耗1点：召唤传奇回响 (一次性强大判定补正)
+                        </button>
+                        <button onclick="refundHistorySpent()" class="py-2 px-3 bg-slate-100 hover:bg-slate-250 text-slate-600 text-xs font-bold rounded-lg transition" title="错误消费退款">
+                            退回点数
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 英雄传承表格 -->
+                <div class="camp-card p-6">
+                    <h2 class="deco-line text-xs uppercase tracking-widest text-[#00b074] font-bold mb-4 flex justify-between items-center">
+                        <span>Column III - RECORD / 营地英烈名录与重大英豪传承</span>
+                        <button onclick="addInheritanceRow()" class="px-3 py-1 bg-[#5856d6] hover:bg-[#5856d6]/80 text-white text-xs font-bold rounded-lg transition shadow-sm">
+                            <i class="fa-solid fa-plus text-[10px]"></i> 新追加一行
+                        </button>
+                    </h2>
+
+                    <div class="overflow-x-auto w-full">
+                        <table class="w-full text-left border-collapse text-xs table-fixed">
+                            <colgroup>
+                                <col class="w-[16%]">
+                                <col class="w-[20%]">
+                                <col class="w-[26%]">
+                                <col class="w-[10%]">
+                                <col class="w-[10%]">
+                                <col class="w-[13%]">
+                                <col class="w-[5%]">
+                            </colgroup>
+                            <thead>
+                                <tr class="border-b border-slate-205 text-slate-400 font-bold bg-[#f8fafc] select-none text-[11px]">
+                                    <th class="p-3">落幕之人姓名</th>
+                                    <th class="p-3">传承特制兵装</th>
+                                    <th class="p-3">独特特效 / 技能属性</th>
+                                    <th class="p-3 text-center">3心退役? (+1)</th>
+                                    <th class="p-3 text-center">英勇牺牲? (+1)</th>
+                                    <th class="p-3">誓言继承人</th>
+                                    <th class="p-3 text-center">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="inheritance-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- 底部控制 -->
+    <footer class="max-w-7xl mx-auto mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 pd-12">
+        <div class="camp-card p-6 flex flex-col justify-between">
+            <div>
+                <h4 class="text-xs font-extrabold text-slate-400 uppercase tracking-widest mb-1">FONT CONTROLLER / 智能字号控制</h4>
+                <p class="text-[10px] text-slate-455 leading-relaxed mb-4">实时自适应调大/调小表格界面的全部文字比例大小。</p>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="adjustPageFontSize(1)" class="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-lg transition text-slate-700">放大字体比例</button>
+                <button onclick="adjustPageFontSize(-1)" class="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-lg transition text-slate-700">缩小字体比例</button>
+            </div>
+        </div>
+
+        <div class="camp-card p-6 flex flex-col justify-between">
+            <div>
+                <h4 class="text-xs font-extrabold text-slate-400 uppercase tracking-widest mb-1">DATA TRANSFER / 数据备份与转移</h4>
+                <p class="text-[10px] text-slate-455 leading-relaxed mb-4">直接保存整个营地卡至硬盘，或者解析以往记录备份内容。</p>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="exportJSON()" class="flex-1 py-2 bg-[#5856d6] hover:bg-[#5856d6]/95 text-white text-xs font-bold rounded-lg transition shadow-md">
+                    <i class="fa-solid fa-file-export mr-1"></i> 导出数据备份
+                </button>
+                <button onclick="triggerImport()" class="flex-1 py-2 bg-[#00b074] hover:bg-[#00b074]/95 text-white text-xs font-bold rounded-lg transition shadow-md">
+                    <i class="fa-solid fa-file-import mr-1"></i> 装载以往导入
+                </button>
+                <input type="file" id="import-file" class="hidden" accept=".json" onchange="importJSON(event)" />
+            </div>
+        </div>
+
+        <div class="camp-card p-6 flex flex-col justify-between">
+            <div>
+                <h4 class="text-xs font-extrabold text-slate-400 uppercase tracking-widest mb-1">CAMP RESETALL / 重置与除名控制</h4>
+                <p class="text-[10px] text-slate-455 leading-relaxed mb-4">彻底销毁浏览器内已经存储的本阶段所有数据，不留残余痕迹。</p>
+            </div>
+            <button onclick="resetAll()" class="w-full py-3 bg-[#e11d48] hover:bg-[#e11d48]/95 text-white text-xs font-extrabold rounded-lg tracking-wider transition shadow-md">
+                💥 还原并完全清空营地数据卡
+            </button>
+        </div>
+    </footer>
+
+    <p class="text-center text-[10px] text-slate-400 mt-12 mb-6">Fabula Ultima 캠페인 시트 © Croz NPC Layout Modified Builder v1.4.2</p>
+
+    <!-- 核心运行脚本 -->
+    <script>
+        const PROSPERITY_DATA = {
+            "拓荒地": { maxClock: 4, memberCap: 2, buildingCap: 1, buildingQty: 2, desc: "营地的存在仅为本地所知。", threat: "威胁主要来自本地的野兽或零散的强盗。这些通常是小兵级别的敌人，不会构成太大的威胁。" },
+            "安居地": { maxClock: 6, memberCap: 3, buildingCap: 2, buildingQty: 3, desc: "营地的名声开始在区域内传播。", threat: "这会吸引有组织的匪帮（可能拥有精英级别的首领）或大型怪物。邻近的领主或势力可能会派出斥候前来刺探。" },
+            "扬名地": { maxClock: 8, memberCap: 4, buildingCap: 3, buildingQty: 4, desc: "营地已成为一个不可忽视的区域中心。", threat: "威胁升级为专业的佣兵团、敌对组织的特工，甚至是小规模的正规军。面对的冲突可能包含明确的战术目标，而不仅仅是生存之战。" },
+            "交汇地": { maxClock: 10, memberCap: 5, buildingCap: 4, buildingQty: 5, desc: "营地的影响力足以撼动地区势力平衡。★ 突破该上限常理需要耗费1点【历史点】进行开启。", threat: "威胁将来自贵族领主的军队、强大公会的武装力量，甚至是帝国先锋军。面对的对手将是拥有大将级别指挥官的强大部队。" },
+            "传说地": { maxClock: 12, memberCap: 6, buildingCap: 5, buildingQty: 6, desc: "营地已成为世界级的传奇。★ 突破该上限常理需要耗费1点【历史点】进行开启。", threat: "所面临的威胁将是史诗级的：觊觎其力量的巨龙、试图腐化其核心的恶魔领主，或是将其视为眼中钉的帝国主力。此时的命运将直接关系到战役的落幕。" }
+        };
+
+        const LIVABILITY_DATA = {
+            0: { status: "濒临崩溃", desc: "信任已荡然无存。", effect: "繁荣命刻无法推进。每场游戏开始时，随机关键成员的营地认同度下降1级。" },
+            1: { status: "苟延残喘", desc: "人们只是为了生存聚集于此。", effect: "所有玩家角色无法通过休息场景来建立或强化羁绊。" },
+            2: { status: "脆弱联盟", desc: "居民之间仅有最基本的合作。", effect: "在营地内进行社交检定时异常惩罚：全判定获得-2修正值。" },
+            3: { status: "初步信任", desc: "人们开始放下戒心，营地是安全的避风港。", effect: "无特殊效果。" },
+            4: { status: "社区雏形", desc: "居民开始互帮互助。", effect: "获得由常驻居民提供的【居民纳税】经营加成福利。" },
+            5: { status: "守望相助", desc: "邻里之间关系和睦。", effect: "获得由常驻居民提供的【社区援助】判定加成福利。" },
+            6: { status: "志同道合", desc: "独特的营地文化开始形成。", effect: "获得由常驻居民提供的【共同发展】初始命刻红利效果。" },
+            7: { status: "士气高涨", desc: "营地充满了希望与活力。", effect: "所有团队检定的最终结果获得+2修正值。" },
+            8: { status: "希望灯塔", desc: "营地的名声远扬。", effect: "获得由常驻居民提供的情报收集与野外旅行骰降阶待遇。" },
+            9: { status: "万众一心", desc: "居民们为自己的家园感到自豪。", effect: "获得由常驻居民提供的【同心协力】建设性事务离线追加进度。" },
+            10: { status: "英雄港湾", desc: "这里是传奇诞生和安息的地方。", effect: "每个从这里走向世界的勇者都将获得落幕先烈的一项特许规避性传承技能。" }
+        };
+
+        const APPROVAL_CONFIG = {
+            0: { title: "疏离者", relation: "负面/观望", effect: "技能条功能打折或完全无效。危机来临时可能主动离开。" },
+            1: { title: "居住者", relation: "冷漠契约", effect: "技能正常生效。只会按章办事，决不会提供额外的关照。" },
+            2: { title: "归属者", relation: "关切热心", effect: "能力条增幅，并在幕后发布独家副本委托任务。" },
+            3: { title: "守护者", relation: "同舟共济", effect: "全面唤醒终极战斗能力，且允许标志建筑满级。" }
+        };
+
+        const TRAITS_FULL_DICTIONARY = {
+            "濒临崩溃": "【信任危机 (负面惩罚)】：营地人心离散，繁荣命刻陷入死锁无法往前正常扩建。且每场游戏开始准备环节，GM将进行暗抽，随机一名已入驻守护者的关系认同值惨遭降阶1级。",
+            "苟延残喘": "【孤立无援 (负面惩罚)】：居民只为基本果腹存留于此。在大本营休整的所有玩家角色被剥夺于休息幕间进行巩固、结盟或增幅核心羁绊关系的权利限制。",
+            "脆弱联盟": "【离心状态 (负面惩罚)】：居民间徒留最基本的皮毛联络。所有玩家在防线内做涉及外交、恐吓、疏通人情等社交动作时，最终决定结论强制扣除修正值 -2 。",
+            "初步信任": "【局势趋稳 (无负面)】：大本营正式宣告进入安全落脚点。没有惩罚，居民关系向好，开始自发在休整期间与小队发生故事缘分。",
+            "居民纳税": "【分红福利】：每次全新大冒险跑团开始阶段，营地金库都会自动收到合共【当前宜居总格数值 × 100】金币价值 of 资金。玩家自由支配分配进行商团交易。",
+            "社区援助": "【常驻居民援助】：每一次做完完整幕间休整，所有玩家将自动刷新获得1层“社区援助”标记。遭遇冒险困难检定时，可以消耗该印记（通过细节叙述周围居民们的后援）为单次骰子修正修正 +2 效果。无法无限叠加。",
+            "共同发展": "【工匠基础】：凡在营地规划开动、具备填刻度要求的经营改造或防御扩容命刻时，该工程初始状态下，默认第一格已经是提前亮起完好的；或者一键填充当期行进中项目的一格进度刻度。",
+            "士气高涨": "【群情激昂】：大本营充溢着空前的狂热。出关行军或者做大本营合力防御等团队级连携大检定时，所有关联PC的扔骰决策值平白追加 +2 修正。",
+            "情报收集": "【斥候网络】：居民主动担当耳目。当开启主线旅投掷骰探测地图时，探测所用的基石骰子等级下降1个档次（至多降在d6）。判定一旦丢出不高于 2 的成果值，立马捕获隐性奇遇点。",
+            "同心协力": "【自发筑基】：启动土木搭建后，不受冒险PC自身坐标是否在家的条件钳制，凡度过修整周，该工程内部的进度刻度表都会不需要消耗大家任何经费金币自发完美推荐1格。",
+            "英雄港湾": "【绝景底蕴】：落幕之人生涯闪耀之处。如果有PC走向隐退，其选择的盟约后代新PC不仅完整获取基础财富，更有权直接点选一项史诗级的“英雄技能”（完全豁免前置职业专精要求，由大伙合议如何将遗志在叙事中转述继承即可）。"
+        };
+
+        let prosAlertDismissed = false;
+
+        let systemData = {
+            campName: "",
+            prosStage: "拓荒地",
+            prosClockVal: 0,
+            livabilityVal: 0,
+            resources: { supplies: 0, mysteries: 0, contacts: 0, history: 0 },
+            campDesc: "",
+
+            historyAdjust: 0,
+            historySpent: 0,
+            buildingCapLimitBreak: 0,
+
+            residentScale: "少量居民",
+
+            members: [],
+            buildings: [],
+            inheritances: []
+        };
+
+        function initEmptyMembers() {
+            systemData.members = [];
+            systemData.buildings = [];
+            systemData.inheritances = [];
+            systemData.historyAdjust = 0;
+            systemData.historySpent = 0;
+            systemData.buildingCapLimitBreak = 0;
+            systemData.residentScale = "少量居民";
+        }
+
+        window.onload = function () {
+            const localStore = localStorage.getItem("FU_CAMP_DATA_BRIGHT_V140");
+            if (localStore) {
+                try {
+                    systemData = JSON.parse(localStore);
+                    if (!systemData.members) systemData.members = [];
+                    if (!systemData.inheritances) systemData.inheritances = [];
+                    if (!systemData.buildings) systemData.buildings = [];
+                    if (systemData.historyAdjust === undefined) systemData.historyAdjust = 0;
+                    if (systemData.historySpent === undefined) systemData.historySpent = 0;
+                    if (systemData.buildingCapLimitBreak === undefined) systemData.buildingCapLimitBreak = 0;
+                    if (!systemData.residentScale) systemData.residentScale = "少量居民";
+                } catch (e) {
+                    initEmptyMembers();
+                }
+            } else {
+                initEmptyMembers();
+            }
+
+            drawMembersCards();
+            drawNormalBuildingsCards();
+
+            // 回填基础数据
+            document.getElementById("camp-name").value = systemData.campName || "";
+            document.getElementById("pros-stage").value = systemData.prosStage;
+            document.getElementById("liv-range").value = systemData.livabilityVal;
+            document.getElementById("camp-desc").value = systemData.campDesc || "";
+            document.getElementById("resident-scale-select").value = systemData.residentScale;
+
+            updateProsStage(true);
+            updateLivability();
+            updateResourceVisuals();
+            renderInheritanceRows();
+            recalculateHistoryPoints();
+        };
+
+        function saveData() {
+            systemData.campName = document.getElementById("camp-name").value;
+            systemData.prosStage = document.getElementById("pros-stage").value;
+            systemData.livabilityVal = parseInt(document.getElementById("liv-range").value);
+            systemData.campDesc = document.getElementById("camp-desc").value;
+            systemData.residentScale = document.getElementById("resident-scale-select").value;
+
+            // 实战动态重采集已入驻成员的值
+            const cardElems = document.querySelectorAll(".member-card");
+            const tempMembers = [];
+            cardElems.forEach((card) => {
+                tempMembers.push({
+                    name: card.querySelector(".m-name").value,
+                    looks: card.querySelector(".m-looks").value,
+                    approval: parseInt(card.querySelector(".m-approval-range").value),
+                    value: card.querySelector(".m-value").value,
+                    building: card.querySelector(".m-b-name").value,
+                    buildingLv: parseInt(card.querySelector(".m-b-lv").value),
+
+                    t1Name: card.querySelector(".m-t1-name").value,
+                    t1Type: card.querySelector(".m-t1-type").value,
+                    t1Desc: card.querySelector(".m-t1-desc").value,
+                    t2Name: card.querySelector(".m-t2-name").value,
+                    t2Type: card.querySelector(".m-t2-type").value,
+                    t2Desc: card.querySelector(".m-t2-desc").value
+                });
+            });
+            systemData.members = tempMembers;
+
+            // 采集普通建筑数据
+            const normalCardElems = document.querySelectorAll(".normal-building-card");
+            const tempBuildings = [];
+            normalCardElems.forEach((card) => {
+                tempBuildings.push({
+                    name: card.querySelector(".b-name").value,
+                    cost: parseInt(card.querySelector(".b-cost").value) || 0,
+                    supplies: parseInt(card.querySelector(".b-supplies").value) || 0,
+                    mysteries: parseInt(card.querySelector(".b-mysteries").value) || 0,
+                    contacts: parseInt(card.querySelector(".b-contacts").value) || 0,
+                    narrative: card.querySelector(".b-narrative").value
+                });
+            });
+            systemData.buildings = tempBuildings;
+
+            // 提取英雄名录
+            const tableRows = document.querySelectorAll("#inheritance-table-body tr");
+            systemData.inheritances = [];
+            tableRows.forEach(row => {
+                systemData.inheritances.push({
+                    pastHero: row.querySelector(".i-hero").value,
+                    item: row.querySelector(".i-item").value,
+                    spec: row.querySelector(".i-spec").value,
+                    isMaxApproval: row.querySelector(".i-max-approval").checked,
+                    isSacrificed: row.querySelector(".i-sacrificed").checked,
+                    inheritor: row.querySelector(".i-inheritor").value
+                });
+            });
+
+            localStorage.setItem("FU_CAMP_DATA_BRIGHT_V140", JSON.stringify(systemData));
+            recalculateHistoryPoints();
+        }
+
+        // ======== 历史点核心算法 ========
+        function recalculateHistoryPoints() {
+            let base = 0;
+            let approvalBonus = 0;
+            let sacrificeBonus = 0;
+
+            systemData.inheritances.forEach(i => {
+                if (i.pastHero && i.pastHero.trim() !== "") {
+                    base += 1;
+                    if (i.isMaxApproval) approvalBonus += 1;
+                    if (i.isSacrificed) sacrificeBonus += 1;
+                }
+            });
+
+            const totalEarned = base + approvalBonus + sacrificeBonus;
+            const available = totalEarned + (systemData.historyAdjust || 0) - (systemData.historySpent || 0);
+            const actualAvailable = Math.max(0, available);
+
+            systemData.resources.history = actualAvailable;
+            document.getElementById("res-history").innerText = actualAvailable;
+
+            if (document.getElementById("calc-base")) {
+                document.getElementById("calc-base").innerText = base;
+                document.getElementById("calc-approval").innerText = `+${approvalBonus}`;
+                document.getElementById("calc-sacrifice").innerText = `+${sacrificeBonus}`;
+                document.getElementById("calc-adjust").innerText = (systemData.historyAdjust >= 0 ? "+" : "") + systemData.historyAdjust;
+                document.getElementById("calc-available").innerText = actualAvailable;
+                document.getElementById("lbl-lbl").innerText = systemData.buildingCapLimitBreak || 0;
+            }
+
+            checkProsperitySpentBarrier();
+        }
+
+        function adjustHistoryCorrection(delta) {
+            systemData.historyAdjust += delta;
+            saveData();
+        }
+
+        function triggerLimitBreakBuilding() {
+            const avail = systemData.resources.history;
+            if (avail < 1) {
+                alert("无法突破：可用【历史点】不足！请先达成英烈传承或由主持人工调配补正点数。");
+                return;
+            }
+            systemData.historySpent += 1;
+            systemData.buildingCapLimitBreak += 1;
+            saveData();
+            alert(`🎉 突破成功！在大本营的传世护佑下，专属标志建筑的上限等级永久提升 1 级！(目前已叠突破: ${systemData.buildingCapLimitBreak}级)`);
+        }
+
+        function triggerEcho() {
+            const avail = systemData.resources.history;
+            if (avail < 1) {
+                alert("无法召唤：大本营所凝聚的传奇回忆不足！");
+                return;
+            }
+            if (confirm("战役决断：您确信要消耗1点历史点触发【传奇回响】事件吗？这将为营地存亡降临强大的精神力量。")) {
+                systemData.historySpent += 1;
+                saveData();
+                alert("🔥 一声悠远的战角！本次战役所有骰子检定追加一次免费重掷或由GM判定的一次性叙事增益！");
+            }
+        }
+
+        function refundHistorySpent() {
+            if(confirm("确定要全部重算清除消耗退回历史点数吗？")) {
+                systemData.historySpent = 0;
+                systemData.buildingCapLimitBreak = 0;
+                saveData();
+            }
+        }
+
+        // ======== 繁荣度阶段机制 ========
+        function updateProsStage(isInit = false) {
+            const selected = document.getElementById("pros-stage").value;
+            const config = PROSPERITY_DATA[selected];
+            if (!config) return;
+
+            document.getElementById("member-cap-badge").innerText = `${config.memberCap} 人`;
+            const capHint = document.getElementById("members-cap-hint");
+            if (capHint) capHint.innerText = config.memberCap;
+            document.getElementById("stage-desc").innerText = config.desc;
+            document.getElementById("threat-p").innerText = config.threat;
+
+            if (!isInit) {
+                systemData.prosClockVal = 0;
+                prosAlertDismissed = false; // 重置关闭状态
+
+                if (selected === "拓荒地") {
+                    document.getElementById("resident-scale-select").value = "少量居民";
+                } else if (selected === "安居地") {
+                    document.getElementById("resident-scale-select").value = "一定数量";
+                } else if (selected === "扬名地") {
+                    document.getElementById("resident-scale-select").value = "相当数量";
+                } else if (["交汇地", "传说地"].includes(selected)) {
+                    document.getElementById("resident-scale-select").value = "大量居民";
+                }
+            }
+
+            renderProsClockNodes(config.maxClock);
+            checkProsperitySpentBarrier();
+
+            // 超限检测提示
+            const currentCount = systemData.members.length;
+            if (currentCount > config.memberCap) {
+                if (capHint) {
+                    capHint.classList.add("text-rose-500", "animate-pulse");
+                    capHint.classList.remove("text-[#5856d6]");
+                }
+                alert(`⚠️ 营地变更核减警示: 当前已填写的成员有 ${currentCount} 人，越过了本繁荣期上限数 (${config.memberCap}人)。\n数据已被安全留存，您可以根据后续剧情选择手动遣返或升级繁荣度。`);
+            } else {
+                if (capHint) {
+                    capHint.classList.remove("text-rose-500", "animate-pulse");
+                    capHint.classList.add("text-[#5856d6]");
+                }
+            }
+            saveData();
+            drawMembersCards();
+        }
+
+        // 弱拦截宿命判定
+        function checkProsperitySpentBarrier() {
+            const currentStage = document.getElementById("pros-stage").value;
+            const warnAlert = document.getElementById("pros-limitbreak-alert");
+
+            if (["交汇地", "传说地"].includes(currentStage)) {
+                if (systemData.resources.history < 1 && systemData.historySpent < 1 && !prosAlertDismissed) {
+                    warnAlert.classList.remove("hidden");
+                    return;
+                }
+            }
+            warnAlert.classList.add("hidden");
+        }
+
+        // 关闭警报
+        function dismissProsAlert(event) {
+            if (event) event.stopPropagation();
+            prosAlertDismissed = true;
+            document.getElementById("pros-limitbreak-alert").classList.add("hidden");
+        }
+
+        function renderProsClockNodes(max) {
+            const container = document.getElementById("pros-clock-container");
+            container.innerHTML = "";
+
+            for (let i = 1; i <= max; i++) {
+                const node = document.createElement("div");
+                node.className = `clock-node ${i <= systemData.prosClockVal ? 'active' : ''}`;
+                node.onclick = function () { toggleClockNode(i); };
+
+                const inner = document.createElement("div");
+                inner.className = "clock-node-inner";
+                node.appendChild(inner);
+                container.appendChild(node);
+            }
+            document.getElementById("pros-clock-text").innerText = `${systemData.prosClockVal} / ${max}`;
+        }
+
+        function toggleClockNode(index) {
+            const stage = document.getElementById("pros-stage").value;
+            const max = PROSPERITY_DATA[stage].maxClock;
+
+            if (systemData.prosClockVal === index) {
+                systemData.prosClockVal = index - 1;
+            } else {
+                systemData.prosClockVal = index;
+            }
+            renderProsClockNodes(max);
+            saveData();
+        }
+
+        // ======== 宜居度脉搏调整 ========
+        function updateLivability() {
+            const val = parseInt(document.getElementById("liv-range").value);
+            document.getElementById("liv-val-display").innerText = val;
+            document.getElementById("top-liv-display").innerText = `${val} / 10`;
+
+            const config = LIVABILITY_DATA[val];
+            if (config) {
+                document.getElementById("liv-status").innerText = config.status;
+                document.getElementById("liv-effect").innerText = `【${config.desc}】 ${config.effect}`;
+            }
+
+            const alertBox = document.getElementById("liv-low-warning");
+            if (val <= 2) {
+                alertBox.classList.remove("hidden");
+            } else {
+                alertBox.classList.add("hidden");
+            }
+
+            renderActivatedTraitsPanel(val);
+            saveData();
+        }
+
+        // ======== 动态渲染激活特质徽章区域 ========
+        function renderActivatedTraitsPanel(livVal) {
+            const container = document.getElementById("activated-badges-container");
+            container.innerHTML = "";
+            document.getElementById("activated-lv-badge").innerText = livVal;
+
+            let activeList = [];
+
+            if (livVal === 0) activeList.push("濒临崩溃");
+            else if (livVal === 1) activeList.push("苟延残喘");
+            else if (livVal === 2) activeList.push("脆弱联盟");
+
+            if (livVal >= 3) activeList.push("初步信任");
+            if (livVal >= 4) activeList.push("居民纳税");
+            if (livVal >= 5) activeList.push("社区援助");
+            if (livVal >= 6) activeList.push("共同发展");
+            if (livVal >= 7) activeList.push("士气高涨");
+            if (livVal >= 8) activeList.push("情报收集");
+            if (livVal >= 9) activeList.push("同心协力");
+            if (livVal >= 10) activeList.push("英雄港湾");
+
+            activeList.forEach((traitName) => {
+                const badge = document.createElement("button");
+
+                let themeClasses = "bg-[#5856d6]/10 border-[#5856d6]/20 text-[#5856d6] hover:bg-[#5856d6] hover:text-white";
+                if (["濒临崩溃", "苟延残喘", "脆弱联盟"].includes(traitName)) {
+                    themeClasses = "bg-[#e11d48]/10 border-[#e11d48]/20 text-[#e11d48] hover:bg-[#e11d48] hover:text-white";
+                }
+
+                badge.className = `trait-pill px-3 py-1.5 rounded-full border text-xs font-bold leading-none ${themeClasses}`;
+                badge.innerText = traitName;
+
+                const tooltipText = TRAITS_FULL_DICTIONARY[traitName] || "未知效果";
+                badge.title = `${traitName}: ${tooltipText.split('】：')[1] || tooltipText}`;
+
+                badge.onclick = function() {
+                    document.querySelectorAll(".trait-pill").forEach(p => p.classList.remove("active-view"));
+                    badge.classList.add("active-view");
+                    showTraitDetails(traitName);
+                };
+
+                container.appendChild(badge);
+            });
+
+            if (activeList.length > 0) {
+                const pills = container.querySelectorAll(".trait-pill");
+                const lastPill = pills[pills.length - 1];
+                lastPill.classList.add("active-view");
+                showTraitDetails(activeList[activeList.length - 1]);
+            } else {
+                document.getElementById("lexicon-title").innerText = "请点击上方生效特征查阅规约";
+                document.getElementById("lexicon-desc").innerText = "暂无激活特征。";
+            }
+        }
+
+        function showTraitDetails(name) {
+            const description = TRAITS_FULL_DICTIONARY[name] || "暂时无法拉取数据详情。";
+            document.getElementById("lexicon-title").innerHTML = `
+                <i class="fa-solid fa-microchip text-[#5856d6]"></i> ${name}
+            `;
+            document.getElementById("lexicon-desc").innerText = description;
+        }
+
+        // ======== 资源指标 ========
+        function adjustResource(type, delta) {
+            systemData.resources[type] = Math.max(0, systemData.resources[type] + delta);
+            updateResourceVisuals();
+            saveData();
+        }
+
+        function updateResourceVisuals() {
+            document.getElementById("res-supplies").innerText = systemData.resources.supplies;
+            document.getElementById("top-supplies-display").innerText = systemData.resources.supplies;
+            document.getElementById("res-mysteries").innerText = systemData.resources.mysteries;
+            document.getElementById("res-contacts").innerText = systemData.resources.contacts;
+        }
+
+        // ======== 绘制关键角色卡片 ========
+        function drawMembersCards() {
+            const container = document.getElementById("member-cards-container");
+            container.innerHTML = "";
+            const template = document.getElementById("member-template");
+
+            const stage = document.getElementById("pros-stage").value;
+            const config = PROSPERITY_DATA[stage];
+            const currentBuildingLimit = (config ? config.buildingCap : 1) + (systemData.buildingCapLimitBreak || 0);
+
+            systemData.members.forEach((data, i) => {
+                const clone = template.content.cloneNode(true);
+                const cardElem = clone.querySelector(".member-card");
+
+                const nameInput = cardElem.querySelector(".m-name");
+                nameInput.value = data.name || "";
+                nameInput.oninput = saveData;
+
+                const looksInput = cardElem.querySelector(".m-looks");
+                looksInput.value = data.looks || "";
+                looksInput.oninput = saveData;
+
+                const valInput = cardElem.querySelector(".m-value");
+                valInput.value = data.value || "";
+                valInput.oninput = saveData;
+
+                const bName = cardElem.querySelector(".m-b-name");
+                bName.value = data.building || "";
+                bName.oninput = saveData;
+
+                const bLvText = cardElem.querySelector("#m-b-lv-max-text");
+                if (bLvText) bLvText.innerText = `建筑最高级限: ${currentBuildingLimit}级`;
+
+                const bLv = cardElem.querySelector(".m-b-lv");
+                bLv.value = data.buildingLv || 0;
+                bLv.max = currentBuildingLimit;
+                bLv.oninput = function() {
+                    let reqVal = parseInt(this.value) || 0;
+                    if (reqVal > currentBuildingLimit) {
+                        alert(`专属建筑等级限制拦截：当前本阶段专属筑墙最大上限级为: ${currentBuildingLimit} 级。`);
+                        this.value = currentBuildingLimit;
+                    }
+                    saveData();
+                };
+
+                // 词条
+                const t1N = cardElem.querySelector(".m-t1-name");
+                t1N.value = data.t1Name || ""; t1N.oninput = saveData;
+                const t1T = cardElem.querySelector(".m-t1-type");
+                t1T.value = data.t1Type || "功能性"; t1T.onchange = saveData;
+                const t1D = cardElem.querySelector(".m-t1-desc");
+                t1D.value = data.t1Desc || ""; t1D.oninput = saveData;
+
+                const t2N = cardElem.querySelector(".m-t2-name");
+                t2N.value = data.t2Name || ""; t2N.oninput = saveData;
+                const t2T = cardElem.querySelector(".m-t2-type");
+                t2T.value = data.t2Type || "角色型"; t2T.onchange = saveData;
+                const t2D = cardElem.querySelector(".m-t2-desc");
+                t2D.value = data.t2Desc || ""; t2D.oninput = saveData;
+
+                const approvalSlider = cardElem.querySelector(".m-approval-range");
+                approvalSlider.value = data.approval || 0;
+                updateApprovalVisualElements(approvalSlider, data.approval);
+                approvalSlider.oninput = function () { updateMemberApproval(this); };
+
+                const deleteBtn = cardElem.querySelector(".m-delete-btn");
+                deleteBtn.onclick = function() { removeMember(i); };
+
+                container.appendChild(clone);
+            });
+
+            const cap = config ? config.memberCap : 2;
+            updateCardLockStates(cap);
+        }
+
+        // 新建入驻
+        function addMember() {
+            const stage = document.getElementById("pros-stage").value;
+            const cap = PROSPERITY_DATA[stage].memberCap;
+
+            if (systemData.members.length >= cap) {
+                alert(`无法添加上限：当前阶段 [${stage}] 最大支持容纳数仅限制在 ${cap} 人！请先行遣散其余NPC或升级营地。`);
+                return;
+            }
+
+            systemData.members.push({
+                name: "", looks: "", approval: 0, value: "", building: "", buildingLv: 0,
+                t1Name: "", t1Type: "功能性", t1Desc: "",
+                t2Name: "", t2Type: "角色型", t2Desc: ""
+            });
+            drawMembersCards();
+            saveData();
+        }
+
+        function removeMember(idx) {
+            const memberName = systemData.members[idx].name || "未命名核心NPC";
+            if (confirm(`大本营防守警告：确信要将关键成员 [${memberName}] 以及关联建筑整体移出营地并遣返吗？`)) {
+                systemData.members.splice(idx, 1);
+                drawMembersCards();
+                saveData();
+            }
+        }
+
+        function updateCardLockStates(allowedCap) {
+            const currentCount = systemData.members.length;
+            const countHint = document.getElementById("members-count-hint");
+            if (countHint) countHint.innerText = currentCount;
+
+            const addBtn = document.getElementById("add-member-btn");
+            if (!addBtn) return;
+
+            if (currentCount >= allowedCap) {
+                addBtn.disabled = true;
+                addBtn.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> 成员席位已满`;
+                addBtn.classList.remove("bg-[#5856d6]", "hover:bg-[#5856d6]/90");
+                addBtn.classList.add("bg-slate-300", "cursor-not-allowed", "text-slate-500");
+            } else {
+                addBtn.disabled = false;
+                addBtn.innerHTML = `<i class="fa-solid fa-plus-circle"></i> 入驻新成员/关联建筑`;
+                addBtn.classList.remove("bg-slate-300", "cursor-not-allowed", "text-slate-500");
+                addBtn.classList.add("bg-[#5856d6]", "hover:bg-[#5856d6]/90");
+            }
+        }
+
+        function updateMemberApproval(sliderElem) {
+            const val = parseInt(sliderElem.value);
+            updateApprovalVisualElements(sliderElem, val);
+            saveData();
+        }
+
+        function updateApprovalVisualElements(sliderElem, val) {
+            const parentCard = sliderElem.closest(".member-card");
+            const config = APPROVAL_CONFIG[val];
+
+            parentCard.querySelector(".m-approval-score").innerText = `${val} / 3`;
+            parentCard.querySelector(".m-approval-title").innerText = config.title;
+
+            const effectElem = parentCard.querySelector(".m-approval-effect");
+            effectElem.innerText = config.effect;
+        }
+
+        // ======== 普通建筑管理 ========
+        function drawNormalBuildingsCards() {
+            const container = document.getElementById("normal-buildings-container");
+            container.innerHTML = "";
+            const template = document.getElementById("normal-building-template");
+
+            systemData.buildings.forEach((data, i) => {
+                const clone = template.content.cloneNode(true);
+                const cardElem = clone.querySelector(".normal-building-card");
+
+                cardElem.querySelector(".b-name").value = data.name || "";
+                cardElem.querySelector(".b-name").oninput = saveData;
+
+                cardElem.querySelector(".b-cost").value = data.cost || 0;
+                cardElem.querySelector(".b-cost").oninput = saveData;
+
+                cardElem.querySelector(".b-supplies").value = data.supplies || 0;
+                cardElem.querySelector(".b-supplies").oninput = saveData;
+
+                cardElem.querySelector(".b-mysteries").value = data.mysteries || 0;
+                cardElem.querySelector(".b-mysteries").oninput = saveData;
+
+                cardElem.querySelector(".b-contacts").value = data.contacts || 0;
+                cardElem.querySelector(".b-contacts").oninput = saveData;
+
+                cardElem.querySelector(".b-narrative").value = data.narrative || "";
+                cardElem.querySelector(".b-narrative").oninput = saveData;
+
+                cardElem.querySelector(".b-delete-btn").onclick = function() { removeNormalBuilding(i); };
+
+                container.appendChild(clone);
+            });
+        }
+
+        function addNormalBuilding() {
+            systemData.buildings.push({
+                name: "", cost: 0, supplies: 0, mysteries: 0, contacts: 0, narrative: ""
+            });
+            drawNormalBuildingsCards();
+            saveData();
+        }
+
+        function removeNormalBuilding(idx) {
+            const buildingName = systemData.buildings[idx].name || "未命名普通建筑";
+            if (confirm(`确认要移除普通建筑 [${buildingName}] 吗？此操作不可撤销。`)) {
+                systemData.buildings.splice(idx, 1);
+                drawNormalBuildingsCards();
+                saveData();
+            }
+        }
+
+        // ======== 选项卡控制 ========
+        function switchTab(target) {
+            document.querySelectorAll(".tab-content").forEach(el => el.classList.add("hidden"));
+            document.getElementById(`tab-field-${target}`).classList.remove("hidden");
+
+            const tabDefs = ["rule", "members", "inheritance"];
+            tabDefs.forEach(t => {
+                const btn = document.getElementById(`tab-btn-${t}`);
+                if (t === target) {
+                    btn.classList.add("active");
+                } else {
+                    btn.classList.remove("active");
+                }
+            });
+
+            if (target === 'members') {
+                switchBuildingTab('core');
+            }
+        }
+
+        function switchBuildingTab(tabType) {
+            document.getElementById("building-core-container").classList.toggle("hidden", tabType !== 'core');
+            document.getElementById("building-normal-container").classList.toggle("hidden", tabType !== 'normal');
+
+            document.getElementById("tab-btn-core").classList.toggle("border-[#5856d6]", tabType === 'core');
+            document.getElementById("tab-btn-core").classList.toggle("text-[#5856d6]", tabType === 'core');
+
+            document.getElementById("tab-btn-normal").classList.toggle("border-[#00b074]", tabType === 'normal');
+            document.getElementById("tab-btn-normal").classList.toggle("text-[#00b074]", tabType === 'normal');
+        }
+
+        // ======== 传承气泡同步更新核心函数 ========
+        function updateInputTooltip(inputElem) {
+            const val = inputElem.value;
+            const tooltipValSpan = inputElem.parentNode.querySelector('.tooltip-val');
+            if (tooltipValSpan) {
+                tooltipValSpan.innerText = val.trim() !== "" ? val : "（未输入内容）";
+            }
+        }
+
+        // ======== 动态渲染英烈志 ========
+        function renderInheritanceRows() {
+            const tbody = document.getElementById("inheritance-table-body");
+            tbody.innerHTML = "";
+
+            if (systemData.inheritances.length === 0) {
+                systemData.inheritances.push({
+                    pastHero: "", item: "", spec: "", inheritor: "",
+                    isMaxApproval: false, isSacrificed: false
+                });
+            }
+
+            systemData.inheritances.forEach((data, index) => {
+                const row = document.createElement("tr");
+                row.className = "border-b border-slate-200 hover:bg-slate-50 transition text-xs";
+                row.innerHTML = `
+                  <!-- 落幕之人 (已引入 break-all 保证连串字符和数字强制边界合理折行) -->
+                  <td class="p-2 align-middle">
+                    <div class="relative group w-full">
+                       <input type="text" class="i-hero w-full bg-[#f8fafc] border border-slate-200 rounded-lg p-1.5 focus:bg-white truncate font-bold" value="${data.pastHero || ''}" placeholder="如：老阿伦" oninput="updateInputTooltip(this); saveData()"/>
+                       <div class="pointer-events-none invisible group-hover:visible absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-[#1e293b] text-[#f8fafc] text-[11px] leading-relaxed rounded-lg p-2.5 shadow-xl border border-slate-700/50 text-left break-all">
+                           <span class="tooltip-val">${data.pastHero || '（未输入内容）'}</span>
+                           <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-solid border-t-[#1e293b] border-r-transparent border-b-transparent border-l-transparent"></div>
+                       </div>
+                    </div>
+                  </td>
+
+                  <!-- 传承兵装 (已引入 break-all 保证连串字符和数字强制边界合理折行) -->
+                  <td class="p-2 align-middle">
+                    <div class="relative group w-full">
+                       <input type="text" class="i-item w-full bg-[#f8fafc] border border-slate-200 rounded-lg p-1.5 focus:bg-white truncate" value="${data.item || ''}" placeholder="传承特制兵装" oninput="updateInputTooltip(this); saveData()"/>
+                       <div class="pointer-events-none invisible group-hover:visible absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-[#1e293b] text-[#f8fafc] text-[11px] leading-relaxed rounded-lg p-2.5 shadow-xl border border-slate-700/50 text-left break-all">
+                           <span class="tooltip-val">${data.item || '（未输入内容）'}</span>
+                           <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-solid border-t-[#1e293b] border-r-transparent border-b-transparent border-l-transparent"></div>
+                       </div>
+                    </div>
+                  </td>
+
+                  <!-- 独特技能/属性 (已引入 break-all 保证连串字符和数字强制边界合理折行) -->
+                  <td class="p-2 align-middle">
+                    <div class="relative group w-full">
+                       <input type="text" class="i-spec w-full bg-[#f8fafc] border border-slate-200 rounded-lg p-1.5 focus:bg-white truncate" value="${data.spec || ''}" placeholder="独特特效/属性" oninput="updateInputTooltip(this); saveData()"/>
+                       <div class="pointer-events-none invisible group-hover:visible absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-[#1e293b] text-[#f8fafc] text-[11px] leading-relaxed rounded-lg p-2.5 shadow-xl border border-slate-700/50 text-left break-all">
+                           <span class="tooltip-val">${data.spec || '（未输入内容）'}</span>
+                           <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-solid border-t-[#1e293b] border-r-transparent border-b-transparent border-l-transparent"></div>
+                       </div>
+                    </div>
+                  </td>
+
+                  <!-- 3心判定 -->
+                  <td class="p-2 text-center align-middle"><input type="checkbox" class="i-max-approval w-4 h-4 rounded text-[#5856d6] focus:ring-0 cursor-pointer" ${data.isMaxApproval ? 'checked' : ''} onchange="saveData()"/></td>
+                  <!-- 英勇牺牲 -->
+                  <td class="p-2 text-center align-middle"><input type="checkbox" class="i-sacrificed w-4 h-4 rounded text-rose-500 focus:ring-0 cursor-pointer" ${data.isSacrificed ? 'checked' : ''} onchange="saveData()"/></td>
+
+                  <!-- 继承人 (同样加入折行机制，防止名字超长挤压) -->
+                  <td class="p-2 align-middle">
+                    <div class="relative group w-full">
+                       <input type="text" class="i-inheritor w-full bg-[#f8fafc] border border-slate-200 rounded-lg p-1.5 focus:bg-white truncate" value="${data.inheritor || ''}" placeholder="继承人姓名" oninput="updateInputTooltip(this); saveData()"/>
+                       <div class="pointer-events-none invisible group-hover:visible absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-[#1e293b] text-[#f8fafc] text-[11px] leading-relaxed rounded-lg p-2.5 shadow-xl border border-slate-700/50 text-left break-all">
+                           <span class="tooltip-val">${data.inheritor || '（未输入内容）'}</span>
+                           <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-solid border-t-[#1e293b] border-r-transparent border-b-transparent border-l-transparent"></div>
+                       </div>
+                    </div>
+                  </td>
+
+                  <!-- 控制删除 -->
+                  <td class="p-2 text-center align-middle">
+                    <button onclick="removeInheritanceRow(${index})" class="text-rose-500 hover:text-white px-2.5 py-1 bg-red-55 hover:bg-[#e11d48] transition rounded-lg"><i class="fa-solid fa-trash-can"></i></button>
+                  </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function addInheritanceRow() {
+            systemData.inheritances.push({
+                pastHero: "", item: "", spec: "", inheritor: "",
+                isMaxApproval: false, isSacrificed: false
+            });
+            renderInheritanceRows();
+            saveData();
+        }
+
+        function removeInheritanceRow(index) {
+            if (systemData.inheritances.length <= 1) {
+                systemData.inheritances = [{
+                    pastHero: "", item: "", spec: "", inheritor: "",
+                    isMaxApproval: false, isSacrificed: false
+                }];
+            } else {
+                systemData.inheritances.splice(index, 1);
+            }
+            renderInheritanceRows();
+            saveData();
+        }
+
+        let currentScale = 12;
+        function adjustPageFontSize(delta) {
+            currentScale = Math.max(10, Math.min(16, currentScale + delta));
+            document.body.style.fontSize = `${currentScale}px`;
+        }
+
+        function exportJSON() {
+            saveData();
+            const name = systemData.campName || "未命名营地数据";
+            const blob = new Blob([JSON.stringify(systemData, null, 2)], { type: "application/json" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `最终物语_BrightCamp_${name}.json`;
+            link.click();
+        }
+
+        function triggerImport() {
+            document.getElementById("import-file").click();
+        }
+
+        function importJSON(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    if (parsed && typeof parsed === "object") {
+                        systemData = parsed;
+
+                        if (!systemData.buildings) systemData.buildings = [];
+                        if (systemData.historyAdjust === undefined) systemData.historyAdjust = 0;
+                        if (systemData.historySpent === undefined) systemData.historySpent = 0;
+                        if (systemData.buildingCapLimitBreak === undefined) systemData.buildingCapLimitBreak = 0;
+
+                        if (!systemData.residentScale) {
+                            const stage = systemData.prosStage || "拓荒地";
+                            if (stage === "拓荒地") systemData.residentScale = "少量居民";
+                            else if (stage === "安居地") systemData.residentScale = "一定数量";
+                            else if (stage === "扬名地") systemData.residentScale = "相当数量";
+                            else systemData.residentScale = "大量居民";
+                        }
+
+                        localStorage.setItem("FU_CAMP_DATA_BRIGHT_V140", JSON.stringify(systemData));
+                        alert("🎉 数据卡配置已全装载导入！");
+                        location.reload();
+                    }
+                } catch (err) {
+                    alert("错误：数据校验失败。文件数据损坏！");
+                }
+            };
+            reader.readAsText(file);
+        }
+    </script>
+</body>
+</html>
