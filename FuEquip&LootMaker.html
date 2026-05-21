@@ -1,0 +1,552 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>最终物语 (FU) 战利品生成器</title>
+    <style>
+        :root {
+            --primary: #8b5cf6;
+            --primary-hover: #7c3aed;
+            --bg-color: #f3f4f6;
+            --card-bg: #ffffff;
+            --border-color: #e5e7eb;
+            --text-main: #1f2937;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .panel {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        .full-width {
+            grid-column: 1 / -1;
+        }
+
+        h2, h3 {
+            margin-top: 0;
+            color: var(--primary);
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+
+        select, input, button {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: all 0.2s;
+        }
+
+            button:hover {
+                opacity: 0.9;
+                transform: translateY(-1px);
+            }
+
+        .btn-random {
+            background: #f59e0b;
+            font-size: 16px;
+            padding: 12px;
+            box-shadow: 0 4px 6px rgba(245, 158, 11, 0.2);
+        }
+
+            .btn-random:hover {
+                background: #d97706;
+            }
+
+        #drop_zone {
+            border: 2px dashed #a78bfa;
+            padding: 20px;
+            text-align: center;
+            background: #f5f3ff;
+            border-radius: 8px;
+            cursor: pointer;
+            color: #6d28d9;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+
+            #drop_zone:hover {
+                background: #ede9fe;
+            }
+
+        .loot-card {
+            border: 2px solid #fbbf24;
+            background: #fffbeb;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        .loot-title {
+            font-size: 22px;
+            font-weight: bold;
+            color: #b45309;
+            border-bottom: 2px solid #fcd34d;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .loot-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            font-size: 14px;
+        }
+
+        .stat-item {
+            background: #fef3c7;
+            padding: 8px;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+            .stat-item strong {
+                color: #92400e;
+            }
+
+        .loot-desc {
+            margin-top: 15px;
+            padding: 10px;
+            background: #fff;
+            border-left: 4px solid #fbbf24;
+            font-style: italic;
+            color: #4b5563;
+        }
+
+        .loot-mods {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #059669;
+            font-weight: bold;
+        }
+
+        .code-box {
+            background: #1f2937;
+            color: #10b981;
+            padding: 10px;
+            font-family: monospace;
+            word-break: break-all;
+            border-radius: 4px;
+            margin-top: 15px;
+            font-size: 12px;
+            max-height: 100px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="panel full-width">
+            <h2>📦 数据包热加载中心 (Fupack Loader)</h2>
+            <div id="drop_zone" onclick="document.getElementById('file_uploader').click()">
+                📂 拖拽 .fupack 文件到此处，或点击浏览文件加载扩展词条库
+            </div>
+            <input type="file" id="file_uploader" style="display: none;" accept=".fupack" onchange="handleFileUpload(event)">
+            <div id="loaded_packs_list" style="margin-top: 15px; font-size: 14px; color: #059669; font-weight: bold;">
+                当前已加载扩展：默认核心库 (0条可用词条)
+            </div>
+        </div>
+
+        <div class="panel">
+            <h3>⚙️ 稀有装备引擎</h3>
+
+            <p style="font-size: 13px; color: #6b7280; margin-bottom: 20px;">
+                点击下方按钮，系统将根据《最终物语》核心规则自动进行：品类抽取 ➔ 基础模板抽取 ➔ 武器随机修改判定 ➔ 附加适用词条。
+            </p>
+
+            <button class="btn-random" onclick="generateRandomLootWithAntiDupe()">🎲 一键纯随机生成稀有战利品</button>
+            <div id="anti_dupe_log" style="font-size: 12px; color: #f59e0b; margin-top: 8px; text-align: center; height: 16px;"></div>
+
+            <hr style="border: 0; border-top: 1px dashed #ccc; margin: 25px 0;">
+
+            <div style="opacity: 0.5; pointer-events: none;">
+                <h4 style="margin:0 0 10px 0;">手动捏造 (开发中)</h4>
+                <div class="form-group">
+                    <label>基础模板</label>
+                    <select disabled><option>仅限自动随机模式</option></select>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h3>🎁 生成结果与导出</h3>
+
+            <div id="loot_output" class="loot-card">
+                <div class="loot-title">
+                    <span id="out_name">装备名称</span>
+                    <span id="out_type" style="font-size: 14px; background: #fcd34d; padding: 2px 8px; border-radius: 12px; color: #92400e;">武器</span>
+                </div>
+
+                <div class="loot-stats" id="out_dynamic_stats"></div>
+                <div class="loot-mods" id="out_mods_history"></div>
+                <div class="loot-desc" id="out_desc">无特殊效果</div>
+
+                <div style="margin-top: 15px; font-size: 12px; color: #ef4444; font-weight: bold;">
+                    ⚠️ 提示：请 GM 在发放此物品前，根据团内剧情为其修改一个炫酷的名字。
+                </div>
+
+                <button onclick="copyLootCode()" style="background: #10b981;">📋 复制 NBT 导入码 (发给PL)</button>
+                <div class="code-box" id="out_code" style="display: none;"></div>
+            </div>
+
+            <div id="placeholder_tip" style="text-align: center; color: #9ca3af; padding: 50px 0;">
+                暂无战利品，请点击左侧随机生成按钮
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // 1. 核心硬编码数据库
+        // ==========================================
+        const DB = {
+            weapons: [
+                { id: "iron_knuckle", name: "铁指虎", slot_type: "weapon", subtype: "brawling", cost: 150, hit_attrs: ["DEX", "MIG"], hit_modifier: 0, damage_base: 6, damage_type: "physical", hands: "one_handed", range_type: "melee", is_class_limited: false },
+                { id: "steel_dagger", name: "钢匕首", slot_type: "weapon", subtype: "dagger", cost: 150, hit_attrs: ["DEX", "INS"], hit_modifier: 1, damage_base: 4, damage_type: "physical", hands: "one_handed", range_type: "melee", is_class_limited: false },
+                { id: "iron_hammer", name: "铁锤", slot_type: "weapon", subtype: "heavy", cost: 200, hit_attrs: ["MIG", "MIG"], hit_modifier: 0, damage_base: 6, damage_type: "physical", hands: "one_handed", range_type: "melee", is_class_limited: false },
+                { id: "broadaxe", name: "阔斧", slot_type: "weapon", subtype: "heavy", cost: 250, hit_attrs: ["MIG", "MIG"], hit_modifier: 0, damage_base: 10, damage_type: "physical", hands: "two_handed", range_type: "melee", is_class_limited: true },
+                { id: "battleaxe", name: "战斧", slot_type: "weapon", subtype: "heavy", cost: 250, hit_attrs: ["MIG", "MIG"], hit_modifier: 0, damage_base: 14, damage_type: "physical", hands: "two_handed", range_type: "melee", is_class_limited: true },
+                { id: "light_spear", name: "轻矛", slot_type: "weapon", subtype: "spear", cost: 200, hit_attrs: ["DEX", "MIG"], hit_modifier: 0, damage_base: 8, damage_type: "physical", hands: "one_handed", range_type: "melee", is_class_limited: true },
+                { id: "heavy_spear", name: "重矛", slot_type: "weapon", subtype: "spear", cost: 200, hit_attrs: ["DEX", "MIG"], hit_modifier: 0, damage_base: 12, damage_type: "physical", hands: "two_handed", range_type: "melee", is_class_limited: true },
+                { id: "bronze_sword", name: "青铜剑", slot_type: "weapon", subtype: "sword", cost: 200, hit_attrs: ["DEX", "MIG"], hit_modifier: 1, damage_base: 6, damage_type: "physical", hands: "one_handed", range_type: "melee", is_class_limited: true },
+                { id: "greatsword", name: "巨剑", slot_type: "weapon", subtype: "sword", cost: 200, hit_attrs: ["DEX", "MIG"], hit_modifier: 1, damage_base: 10, damage_type: "physical", hands: "two_handed", range_type: "melee", is_class_limited: true },
+                { id: "katana", name: "武士刀", slot_type: "weapon", subtype: "sword", cost: 200, hit_attrs: ["DEX", "INS"], hit_modifier: 1, damage_base: 10, damage_type: "physical", hands: "two_handed", range_type: "melee", is_class_limited: true },
+                { id: "rapier", name: "细剑", slot_type: "weapon", subtype: "sword", cost: 200, hit_attrs: ["DEX", "INS"], hit_modifier: 1, damage_base: 6, damage_type: "physical", hands: "one_handed", range_type: "melee", is_class_limited: true },
+                { id: "flail", name: "链鞭", slot_type: "weapon", subtype: "flail", cost: 150, hit_attrs: ["DEX", "DEX"], hit_modifier: 0, damage_base: 8, damage_type: "physical", hands: "two_handed", range_type: "melee", is_class_limited: false },
+                { id: "staff", name: "法杖", slot_type: "weapon", subtype: "magic", cost: 100, hit_attrs: ["WLP", "WLP"], hit_modifier: 0, damage_base: 6, damage_type: "physical", hands: "two_handed", range_type: "melee", is_class_limited: false },
+                { id: "tome", name: "魔典", slot_type: "weapon", subtype: "magic", cost: 100, hit_attrs: ["INS", "INS"], hit_modifier: 0, damage_base: 6, damage_type: "physical", hands: "two_handed", range_type: "melee", is_class_limited: false },
+                { id: "shuriken", name: "手里剑", slot_type: "weapon", subtype: "thrown", cost: 150, hit_attrs: ["DEX", "INS"], hit_modifier: 0, damage_base: 4, damage_type: "physical", hands: "one_handed", range_type: "ranged", is_class_limited: false },
+                { id: "crossbow", name: "十字弩", slot_type: "weapon", subtype: "bow", cost: 150, hit_attrs: ["DEX", "INS"], hit_modifier: 0, damage_base: 8, damage_type: "physical", hands: "two_handed", range_type: "ranged", is_class_limited: false },
+                { id: "shortbow", name: "短弓", slot_type: "weapon", subtype: "bow", cost: 200, hit_attrs: ["DEX", "DEX"], hit_modifier: 0, damage_base: 8, damage_type: "physical", hands: "two_handed", range_type: "ranged", is_class_limited: false },
+                { id: "pistol", name: "手枪", slot_type: "weapon", subtype: "firearm", cost: 250, hit_attrs: ["DEX", "INS"], hit_modifier: 0, damage_base: 8, damage_type: "physical", hands: "one_handed", range_type: "ranged", is_class_limited: true }
+            ],
+            armors: [
+                { id: "travel_garb", name: "旅行装束", slot_type: "armor", cost: 100, def_str: "【DEX】+1", mdef_str: "【INS】+1", init_modifier: -1, is_class_limited: false },
+                { id: "silk_shirt", name: "丝质衬衫", slot_type: "armor", cost: 150, def_str: "【DEX】", mdef_str: "【INS】+2", init_modifier: -1, is_class_limited: false },
+                { id: "martial_tunic", name: "武道服", slot_type: "armor", cost: 150, def_str: "【DEX】+1", mdef_str: "【INS】+1", init_modifier: 0, is_class_limited: false },
+                { id: "sage_robe", name: "贤者长袍", slot_type: "armor", cost: 200, def_str: "【DEX】+1", mdef_str: "【INS】+2", init_modifier: -2, is_class_limited: false },
+                { id: "brigandine", name: "板甲衣", slot_type: "armor", cost: 150, def_str: "10 (固定)", mdef_str: "【INS】", init_modifier: -2, is_class_limited: true },
+                { id: "bronze_plate", name: "青铜板甲", slot_type: "armor", cost: 200, def_str: "11 (固定)", mdef_str: "【INS】", init_modifier: -3, is_class_limited: true },
+                { id: "runic_plate", name: "符文板甲", slot_type: "armor", cost: 250, def_str: "11 (固定)", mdef_str: "【INS】+1", init_modifier: -3, is_class_limited: true },
+                { id: "steel_plate", name: "钢制板甲", slot_type: "armor", cost: 300, def_str: "12 (固定)", mdef_str: "【INS】", init_modifier: -4, is_class_limited: true }
+            ],
+            shields: [
+                { id: "bronze_shield", name: "铜盾", slot_type: "shield", cost: 100, def_bonus: 2, mdef_bonus: 0, init_modifier: 0, is_class_limited: false },
+                { id: "runic_shield", name: "符文盾", slot_type: "shield", cost: 150, def_bonus: 2, mdef_bonus: 2, init_modifier: 0, is_class_limited: true }
+            ]
+        };
+
+        const ELEMENTS = ["fire", "ice", "wind", "earth", "thunder", "light", "dark", "poison"];
+        const ELEMENT_NAMES = { fire: "火", ice: "冰", wind: "风", earth: "土", thunder: "雷", light: "光", dark: "暗", poison: "毒" };
+
+        let GLOBAL_EFFECTS_DB = [];
+        let currentGlobalId = 0;
+        let loadedPackNames = [];
+
+        // ==========================================
+        // 2. 数据包导入逻辑
+        // ==========================================
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file || !file.name.endsWith('.fupack')) return alert("请上传有效的 .fupack 数据包文件！");
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const content = e.target.result;
+                    if (!content.startsWith("FU-PACK//") || !content.endsWith("//END")) throw new Error("文件损坏");
+
+                    const base64Part = content.split("//")[1];
+                    const packObj = JSON.parse(decodeURIComponent(atob(base64Part)));
+
+                    let importedCount = 0;
+                    packObj.csv_rows.forEach(row => {
+                        if (!row.effect_name) return;
+                        currentGlobalId++;
+                        GLOBAL_EFFECTS_DB.push({
+                            global_id: currentGlobalId,
+                            _source: packObj.meta.pack_name,
+                            ...row
+                        });
+                        importedCount++;
+                    });
+
+                    loadedPackNames.push(`${packObj.meta.pack_name} v${packObj.meta.version}`);
+                    document.getElementById('loaded_packs_list').innerText = `已加载扩展: ${loadedPackNames.join(", ")} (共 ${GLOBAL_EFFECTS_DB.length} 条可用词条)`;
+
+                    alert(`成功导入【${packObj.meta.pack_name}】，新增 ${importedCount} 个词条！`);
+                } catch (err) { alert("加载失败：" + err.message); }
+            };
+            reader.readAsText(file);
+        }
+
+        // ==========================================
+        // 3. 查重防非算法与随机引擎
+        // ==========================================
+        const RECENT_LOOT_HISTORY = [];
+        const MAX_HISTORY_SIZE = 10;
+        const MAX_REROLLS = 10; // 最多重摇 10 次防死循环
+
+        function rollArray(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+        function rollChance(percent) { return Math.random() < (percent / 100); }
+
+        // 生成装备的唯一指纹 (基础模板 + 词条全局ID + 最终价格作为特征)
+        function generateFingerprint(item) {
+            const baseId = item.base_data.id || "accessory";
+            const effectId = item.nbt_tags.global_id || "none";
+            return `${baseId}_${effectId}_${item.item_meta.final_cost}`;
+        }
+
+        // 带防重机制的外层调用
+        function generateRandomLootWithAntiDupe() {
+            if (GLOBAL_EFFECTS_DB.length === 0) {
+                alert("⚠️ 请先在上方拖入一个 `.fupack` 词条包！");
+                return;
+            }
+
+            let finalItem;
+            let fingerprint = "";
+            let attempts = 0;
+            const logDiv = document.getElementById('anti_dupe_log');
+
+            do {
+                finalItem = craftSingleLootItem();
+                fingerprint = generateFingerprint(finalItem);
+                attempts++;
+            } while (RECENT_LOOT_HISTORY.includes(fingerprint) && attempts < MAX_REROLLS);
+
+            // 更新历史队列
+            RECENT_LOOT_HISTORY.push(fingerprint);
+            if (RECENT_LOOT_HISTORY.length > MAX_HISTORY_SIZE) {
+                RECENT_LOOT_HISTORY.shift();
+            }
+
+            // 更新 UI 日志给 GM 提示
+            if (attempts > 1) {
+                logDiv.innerText = `💡 查重机制生效：已在后台自动重摇了 ${attempts - 1} 次以避免产生重复战利品。`;
+            } else {
+                logDiv.innerText = ""; // 一次过，清空日志
+            }
+
+            renderLootCard(finalItem);
+        }
+
+        // 核心单次生成逻辑 (剥离出来)
+        function craftSingleLootItem() {
+            const typeRoll = Math.random();
+            let slotType = typeRoll < 0.4 ? "weapon" : (typeRoll < 0.6 ? "armor" : (typeRoll < 0.8 ? "shield" : "accessory"));
+
+            let item = { item_meta: {}, base_data: {}, modifications: [], nbt_tags: {} };
+
+            // 饰品特殊处理
+            if (slotType === "accessory") {
+                item.item_meta.slot_type = "accessory";
+                item.base_data = { name: "神秘饰品", cost: 0 };
+            } else {
+                const basePool = slotType === "weapon" ? DB.weapons : (slotType === "armor" ? DB.armors : DB.shields);
+                item.base_data = JSON.parse(JSON.stringify(rollArray(basePool)));
+                item.item_meta.slot_type = slotType;
+            }
+
+            let finalCost = item.base_data.cost;
+
+            // 武器随机魔改
+            if (slotType === "weapon") {
+                let wp = item.base_data;
+
+                if (rollChance(20)) {
+                    let newEl = rollArray(ELEMENTS);
+                    wp.damage_type = newEl;
+                    finalCost += 100;
+                    item.modifications.push(`元素附魔：伤害变为[${ELEMENT_NAMES[newEl]}] (+100G)`);
+                }
+
+                if (rollChance(20)) {
+                    if (wp.hands === "two_handed") {
+                        wp.hands = "one_handed";
+                        wp.damage_base -= 4;
+                        item.modifications.push(`持握改装：双手转单手，伤害-4`);
+                    } else if (wp.hands === "one_handed" && !["brawling", "dagger", "thrown"].includes(wp.subtype)) {
+                        wp.hands = "two_handed";
+                        wp.damage_base += 4;
+                        item.modifications.push(`持握改装：单手转双手，伤害+4`);
+                    }
+                }
+
+                if (rollChance(20) && wp.hit_modifier < 1) {
+                    wp.hit_modifier += 1;
+                    finalCost += 100;
+                    item.modifications.push(`精密打磨：命中检定修正+1 (+100G)`);
+                }
+
+                if (rollChance(20)) {
+                    wp.damage_base += 4;
+                    finalCost += 200;
+                    item.modifications.push(`致命改造：伤害公式附加+4 (+200G)`);
+                }
+
+                if (rollChance(10)) {
+                    const attrs = ["DEX", "INS", "MIG", "WLP"];
+                    let a1 = rollArray(attrs);
+                    if (rollChance(50)) {
+                        let a2 = rollArray(attrs);
+                        wp.hit_attrs = [a1, a2];
+                        item.modifications.push(`重心调校：检定属性变为[${a1}+${a2}]`);
+                    } else {
+                        wp.hit_attrs = [a1, a1];
+                        finalCost += 50;
+                        item.modifications.push(`极端调校：检定单属性[${a1}+${a1}] (+50G)`);
+                    }
+                }
+            }
+
+            // 词条抽取
+            const validEffects = GLOBAL_EFFECTS_DB.filter(eff => {
+                if (eff.applies_to === "all") return true;
+                if (slotType === "armor" || slotType === "shield") return eff.applies_to === "armor/shield" || eff.applies_to === "armor" || eff.applies_to === "shield";
+                return eff.applies_to === slotType;
+            });
+
+            if (validEffects.length > 0) {
+                const rolledEffect = rollArray(validEffects);
+                finalCost += Number(rolledEffect.price || 0);
+                item.display_desc = `【${rolledEffect.effect_name}】: ${rolledEffect.description}`;
+                item.nbt_tags = { ...rolledEffect };
+
+                item.item_meta.name = `【稀有】${generatePrefix(rolledEffect.effect_name)} ${item.base_data.name}`;
+            } else {
+                item.display_desc = "无特殊效果 (词条库中无适用当前部位的词条)";
+                item.item_meta.name = `【稀有】${item.base_data.name}`;
+            }
+
+            // 武器职业限定检测
+            if (slotType === "weapon" && item.base_data.damage_base >= 10) {
+                item.base_data.is_class_limited = true;
+            }
+
+            item.item_meta.final_cost = finalCost;
+            return item;
+        }
+
+        function generatePrefix(effectName) {
+            if (!effectName) return "神秘的";
+            const map = {
+                "火": "灼热的", "冰": "霜冻的", "雷": "闪电", "风": "疾风",
+                "土": "厚重的", "毒": "剧毒的", "光": "神圣", "暗": "黯影",
+                "命中": "精准的", "伤害": "致命的", "多重": "狂乱的", "防": "坚固的",
+                "抗": "抵抗之", "免": "完美", "魔力": "魔力"
+            };
+            for (let key in map) { if (effectName.includes(key)) return map[key]; }
+            return "神秘的";
+        }
+
+        // ==========================================
+        // 4. 动态 UI 渲染
+        // ==========================================
+        let currentGeneratedNbtCode = "";
+
+        function renderLootCard(obj) {
+            document.getElementById('placeholder_tip').style.display = 'none';
+            document.getElementById('loot_output').style.display = 'block';
+
+            document.getElementById('out_name').innerText = obj.item_meta.name + (obj.base_data.is_class_limited ? " (W)" : "");
+
+            const typeLabels = { weapon: "⚔️ 武器", armor: "🛡️ 防具", shield: "🛡️ 盾牌", accessory: "💍 饰品" };
+            document.getElementById('out_type').innerText = typeLabels[obj.item_meta.slot_type];
+
+            const statsDiv = document.getElementById('out_dynamic_stats');
+            statsDiv.innerHTML = `<div class="stat-item"><strong>💰 价值:</strong> <span>${obj.item_meta.final_cost} G</span></div>`;
+
+            if (obj.item_meta.slot_type === "weapon") {
+                statsDiv.innerHTML += `<div class="stat-item"><strong>👐 持握:</strong> <span>${obj.base_data.hands === 'one_handed' ? "单手" : "双手"} (${obj.base_data.range_type === 'melee' ? '近战' : '远程'})</span></div>`;
+
+                let hitBonus = obj.base_data.hit_modifier + (Number(obj.nbt_tags.bonus_accuracy) || 0);
+                let hitStr = `【${obj.base_data.hit_attrs.join("+")}】` + (hitBonus >= 0 ? `+${hitBonus}` : hitBonus);
+                statsDiv.innerHTML += `<div class="stat-item"><strong>🎯 命中:</strong> <span>${hitStr}</span></div>`;
+
+                statsDiv.innerHTML += `<div class="stat-item"><strong>⚔️ 伤害:</strong> <span>【高值+${obj.base_data.damage_base}】${ELEMENT_NAMES[obj.base_data.damage_type] || '物理'}</span></div>`;
+            }
+            else if (obj.item_meta.slot_type === "armor") {
+                let dBonus = Number(obj.nbt_tags.bonus_def) || 0;
+                let mBonus = Number(obj.nbt_tags.bonus_mdef) || 0;
+                statsDiv.innerHTML += `<div class="stat-item"><strong>🛡️ 物防:</strong> <span>${obj.base_data.def_str} ${dBonus > 0 ? '+' + dBonus : ''}</span></div>`;
+                statsDiv.innerHTML += `<div class="stat-item"><strong>✨ 魔防:</strong> <span>${obj.base_data.mdef_str} ${mBonus > 0 ? '+' + mBonus : ''}</span></div>`;
+
+                let initBonus = obj.base_data.init_modifier + (Number(obj.nbt_tags.bonus_init) || 0);
+                statsDiv.innerHTML += `<div class="stat-item"><strong>⚡ 先攻:</strong> <span>${initBonus}</span></div>`;
+            }
+            else if (obj.item_meta.slot_type === "shield") {
+                let dBonus = obj.base_data.def_bonus + (Number(obj.nbt_tags.bonus_def) || 0);
+                let mBonus = obj.base_data.mdef_bonus + (Number(obj.nbt_tags.bonus_mdef) || 0);
+                statsDiv.innerHTML += `<div class="stat-item"><strong>🛡️ 物防修正:</strong> <span>+${dBonus}</span></div>`;
+                statsDiv.innerHTML += `<div class="stat-item"><strong>✨ 魔防修正:</strong> <span>+${mBonus}</span></div>`;
+            }
+
+            const modsDiv = document.getElementById('out_mods_history');
+            if (obj.modifications && obj.modifications.length > 0) {
+                modsDiv.style.display = "block";
+                modsDiv.innerHTML = "🔧 锻造工序：<br>" + obj.modifications.join("<br>");
+            } else {
+                modsDiv.style.display = "none";
+            }
+
+            document.getElementById('out_desc').innerText = obj.display_desc;
+
+            const jsonStr = JSON.stringify(obj);
+            currentGeneratedNbtCode = `FU-ITEM//${btoa(encodeURIComponent(jsonStr))}//END`;
+            document.getElementById('out_code').innerText = currentGeneratedNbtCode;
+            document.getElementById('out_code').style.display = 'none';
+        }
+
+        function copyLootCode() {
+            navigator.clipboard.writeText(currentGeneratedNbtCode).then(() => {
+                alert("✅ 装备 NBT 导入码已复制！\n玩家可将其直接粘贴进 PC 卡中自动装备。");
+            });
+        }
+    </script>
+</body>
+</html>

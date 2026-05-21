@@ -1,0 +1,518 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>最终物语 (FU) 数据包快速制作工具</title>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --bg-color: #f3f4f6;
+            --card-bg: #ffffff;
+            --border-color: #e5e7eb;
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --danger: #ef4444;
+            --success: #10b981;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .panel {
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 20px;
+            border: 1px solid var(--border-color);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        h1, h2, h3 {
+            margin: 0;
+        }
+
+        .meta-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .meta-edit-zone, .meta-display-zone {
+            padding: 15px;
+            border-radius: 6px;
+        }
+
+        .meta-edit-zone {
+            background-color: #f9fafb;
+            border: 1px dashed #d1d5db;
+        }
+
+        .meta-display-zone {
+            background-color: #1f2937;
+            color: #f3f4f6;
+            font-family: monospace;
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+        }
+
+            .form-group label {
+                width: 100px;
+                font-weight: bold;
+                font-size: 14px;
+            }
+
+            .form-group input, .form-group select {
+                flex: 1;
+                padding: 8px;
+                border: 1px solid var(--border-color);
+                border-radius: 4px;
+            }
+
+        .meta-read-row {
+            margin-bottom: 8px;
+            display: flex;
+        }
+
+        .meta-read-key {
+            color: #9ca3af;
+            width: 120px;
+        }
+
+        .meta-read-val {
+            color: #10b981;
+            font-weight: bold;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+        }
+
+        .grid-table {
+            display: grid;
+            min-width: 100%;
+        }
+
+        .grid-header, .grid-cell {
+            padding: 8px;
+            border-bottom: 1px solid var(--border-color);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+        }
+
+        .grid-header {
+            background-color: #f3f4f6;
+            font-weight: bold;
+            font-size: 14px;
+            color: var(--text-muted);
+            justify-content: center;
+        }
+
+        .grid-cell input, .grid-cell select {
+            width: 100%;
+            padding: 6px;
+            border: 1px solid transparent;
+            background: transparent;
+        }
+
+            .grid-cell input:focus, .grid-cell select:focus {
+                border: 1px solid var(--primary);
+                background: #fff;
+                outline: none;
+                border-radius: 4px;
+            }
+            /* 针对只读 ID 的样式 */
+            .grid-cell input[readonly] {
+                background-color: #e5e7eb;
+                color: #6b7280;
+                text-align: center;
+                font-weight: bold;
+                cursor: not-allowed;
+                border-color: #d1d5db;
+            }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: opacity 0.2s;
+        }
+
+            .btn:hover {
+                opacity: 0.9;
+            }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .btn-success {
+            background-color: var(--success);
+            color: white;
+        }
+
+        .btn-danger {
+            background-color: var(--danger);
+            color: white;
+        }
+
+        .btn-outline {
+            background-color: transparent;
+            border: 1px solid var(--border-color);
+        }
+
+        .action-bar {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .spacer {
+            flex: 1;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="panel">
+            <div class="header">
+                <h2>🛠️ 最终物语 数据包制作工具</h2>
+                <select id="templateSelector" onchange="switchTemplate(this.value)" style="padding: 6px; border-radius: 4px;">
+                    <option value="equipment_effects">模板：装备特殊效果词条</option>
+                </select>
+            </div>
+
+            <div class="meta-container">
+                <div class="meta-edit-zone">
+                    <h3 style="margin-bottom: 15px; color: var(--primary);">📝 数据包元数据调整区</h3>
+                    <div class="form-group">
+                        <label>包名称</label>
+                        <input type="text" id="meta_pack_name" value="请输入名字" oninput="updateMetaDisplay()">
+                    </div>
+                    <div class="form-group">
+                        <label>作者</label>
+                        <input type="text" id="meta_author" value="请输入作者" oninput="updateMetaDisplay()">
+                    </div>
+                    <div class="form-group">
+                        <label>版本号</label>
+                        <input type="text" id="meta_version" value="1.0.0" oninput="updateMetaDisplay()">
+                    </div>
+                </div>
+
+                <div class="meta-display-zone">
+                    <h3 style="margin-bottom: 15px; color: var(--success);">🔒 FU-PACK 封装元数据表头</h3>
+                    <div class="meta-read-row"><div class="meta-read-key">["Pack_Name"]</div><div class="meta-read-val" id="disp_pack_name"></div></div>
+                    <div class="meta-read-row"><div class="meta-read-key">["Author"]</div><div class="meta-read-val" id="disp_author"></div></div>
+                    <div class="meta-read-row"><div class="meta-read-key">["Version"]</div><div class="meta-read-val" id="disp_version"></div></div>
+                    <div class="meta-read-row"><div class="meta-read-key">["Data_Type"]</div><div class="meta-read-val" id="disp_template"></div></div>
+                    <div class="meta-read-row"><div class="meta-read-key">["Export_Time"]</div><div class="meta-read-val" id="disp_time"></div></div>
+                    <div style="margin-top: 15px; font-size: 12px; color: #6b7280;">* 此区域数据将在打包时封装，词条导入时将按全局池自动重新编号。</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h3 style="margin-bottom: 15px;">📊 词条编辑区 (ID将自动从1独立编号)</h3>
+            <div class="table-wrapper">
+                <div id="dynamicGridTable" class="grid-table">
+                </div>
+            </div>
+
+            <div class="action-bar">
+                <button class="btn btn-outline" onclick="addNewRow()">➕ 添加一行空白数据</button>
+                <div class="spacer"></div>
+
+                <input type="file" id="file_uploader" style="display: none;" onchange="handleFileUpload(event)">
+
+                <button class="btn btn-outline" onclick="document.getElementById('file_uploader').click()" title="支持 .csv 和 .fupack">📂 导入文件以继续编辑</button>
+
+                <button class="btn btn-primary" onclick="exportCSV()">📄 导出明码 CSV</button>
+                <button class="btn btn-success" onclick="exportFupack()">📦 打包为 .fupack</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const TABLE_SCHEMAS = {
+            equipment_effects: {
+                dataType: "equipment_effects",
+                csvName: "special_effects.csv",
+                columns: [
+                    { key: "local_id", title: "局部ID", type: "readonly", width: "70px" },
+                    { key: "effect_name", title: "词条名称", type: "text", width: "140px" },
+                    { key: "category", title: "效果分类", type: "select", width: "110px", options: ["攻击性效果", "防御性效果", "强化型效果"] },
+                    // 优化点：合并 armor/shield，且将 all 放在第一位默认生效
+                    { key: "applies_to", title: "适用槽位", type: "select", width: "110px", options: ["all", "weapon", "armor/shield", "accessory"] },
+                    { key: "price", title: "价格修正", type: "number", width: "80px", placeholder: "0" },
+                    { key: "bonus_accuracy", title: "命中[NBT]", type: "number", width: "80px" },
+                    // 优化点：增加防具盾牌专属的物防和魔防 NBT
+                    { key: "bonus_def", title: "物防[NBT]", type: "number", width: "80px" },
+                    { key: "bonus_mdef", title: "魔防[NBT]", type: "number", width: "80px" },
+                    { key: "bonus_init", title: "先攻[NBT]", type: "number", width: "80px" },
+                    { key: "multiattack_count", title: "多段[NBT]", type: "number", width: "80px" },
+                    { key: "description", title: "效果描述文本", type: "text", width: "220px" },
+                    { key: "source_book", title: "扩展来源", type: "text", width: "120px", placeholder: "例如: 锻造扩展" }
+                ]
+            }
+        };
+
+        let currentTemplateKey = "equipment_effects";
+        let tableRowsData = [];
+
+        function getTodayString() {
+            return new Date().toISOString().slice(0, 10);
+        }
+
+        function updateMetaDisplay() {
+            document.getElementById('disp_pack_name').innerText = `"${document.getElementById('meta_pack_name').value}"`;
+            document.getElementById('disp_author').innerText = `"${document.getElementById('meta_author').value}"`;
+            document.getElementById('disp_version').innerText = `"${document.getElementById('meta_version').value}"`;
+            document.getElementById('disp_template').innerText = `"${TABLE_SCHEMAS[currentTemplateKey].dataType}"`;
+            document.getElementById('disp_time').innerText = `"${getTodayString()}"`;
+        }
+
+        function switchTemplate(templateKey) {
+            currentTemplateKey = templateKey;
+            if (tableRowsData.length === 0) tableRowsData = [{}];
+            updateMetaDisplay();
+            renderTableStructure();
+        }
+
+        function renderTableStructure() {
+            const schema = TABLE_SCHEMAS[currentTemplateKey];
+            const container = document.getElementById("dynamicGridTable");
+            container.innerHTML = "";
+
+            const gridColumnsStyle = schema.columns.map(c => c.width).join(" ") + " 60px";
+            container.style.gridTemplateColumns = gridColumnsStyle;
+
+            schema.columns.forEach(col => {
+                const headerCell = document.createElement("div");
+                headerCell.className = "grid-header";
+                headerCell.innerText = col.title;
+                container.appendChild(headerCell);
+            });
+            const opHeader = document.createElement("div");
+            opHeader.className = "grid-header";
+            opHeader.innerText = "操作";
+            container.appendChild(opHeader);
+
+            tableRowsData.forEach((row, rowIndex) => {
+                schema.columns.forEach(col => {
+                    const cell = document.createElement("div");
+                    cell.className = "grid-cell";
+
+                    let inputDom;
+                    if (col.type === "readonly") {
+                        inputDom = document.createElement("input");
+                        inputDom.type = "text";
+                        inputDom.readOnly = true;
+                        let localId = rowIndex + 1;
+                        inputDom.value = localId;
+                        row[col.key] = localId;
+                    } else if (col.type === "select") {
+                        inputDom = document.createElement("select");
+                        col.options.forEach(opt => {
+                            const optDom = document.createElement("option");
+                            optDom.value = opt;
+                            optDom.innerText = opt;
+                            inputDom.appendChild(optDom);
+                        });
+
+                        // 优化点：自动将内存空值绑定为默认选项（保证导出不为空）
+                        if (row[col.key] === undefined) {
+                            row[col.key] = col.options[0];
+                        }
+
+                        inputDom.value = row[col.key];
+                        inputDom.onchange = (e) => { tableRowsData[rowIndex][col.key] = e.target.value; };
+                    } else {
+                        inputDom = document.createElement("input");
+                        inputDom.type = col.type;
+                        if (col.placeholder) inputDom.placeholder = col.placeholder;
+                        inputDom.value = row[col.key] !== undefined ? row[col.key] : "";
+                        inputDom.oninput = (e) => { tableRowsData[rowIndex][col.key] = e.target.value; };
+                    }
+
+                    cell.appendChild(inputDom);
+                    container.appendChild(cell);
+                });
+
+                const deleteCell = document.createElement("div");
+                deleteCell.className = "grid-cell";
+                deleteCell.innerHTML = `<button class="btn btn-danger" style="padding:4px 8px;" onclick="deleteRow(${rowIndex})">删</button>`;
+                container.appendChild(deleteCell);
+            });
+        }
+
+        function addNewRow() {
+            tableRowsData.push({});
+            renderTableStructure();
+        }
+
+        function deleteRow(index) {
+            if (tableRowsData.length <= 1) return alert("至少保留一行数据！");
+            tableRowsData.splice(index, 1);
+            renderTableStructure();
+        }
+
+        function exportCSV() {
+            const schema = TABLE_SCHEMAS[currentTemplateKey];
+            const headers = schema.columns.map(c => c.key);
+            let csvContent = headers.join(",") + "\r\n";
+
+            tableRowsData.forEach(row => {
+                const rowValues = headers.map(key => {
+                    let val = String(row[key] || "");
+                    if (val.includes(",") || val.includes('"') || val.includes("\n")) {
+                        val = `"${val.replace(/"/g, '""')}"`;
+                    }
+                    return val;
+                });
+                csvContent += rowValues.join(",") + "\r\n";
+            });
+
+            triggerDownload(schema.csvName, "\uFEFF" + csvContent, "text/csv;charset=utf-8;");
+        }
+
+        function exportFupack() {
+            const packName = document.getElementById('meta_pack_name').value;
+            const author = document.getElementById('meta_author').value;
+            const version = document.getElementById('meta_version').value;
+            const dateStr = getTodayString().replace(/-/g, '');
+
+            const packObject = {
+                meta: { pack_name: packName, version: version, author: author, updated_at: getTodayString() },
+                data_type: TABLE_SCHEMAS[currentTemplateKey].dataType,
+                csv_rows: tableRowsData
+            };
+
+            const jsonStr = JSON.stringify(packObject);
+            const encryptedText = btoa(encodeURIComponent(jsonStr));
+            const finalFileContent = `FU-PACK//${encryptedText}//END`;
+
+            const fileName = `${packName}_v${version}_${author}_${dateStr}.fupack`;
+            triggerDownload(fileName, finalFileContent, "text/plain;charset=utf-8;");
+        }
+
+        function triggerDownload(filename, content, mimeType) {
+            const blob = new Blob([content], { type: mimeType });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.setAttribute("download", filename);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const content = e.target.result;
+                if (file.name.endsWith('.fupack')) {
+                    parseFupack(content);
+                } else if (file.name.endsWith('.csv')) {
+                    parseCSV(content);
+                } else {
+                    alert("不支持的文件格式！请上传 .csv 或 .fupack 文件。");
+                }
+                document.getElementById('file_uploader').value = "";
+            };
+            reader.readAsText(file);
+        }
+
+        function parseFupack(content) {
+            try {
+                if (!content.startsWith("FU-PACK//") || !content.endsWith("//END")) throw new Error("文件格式损坏。");
+                const base64Part = content.split("//")[1];
+                const jsonStr = decodeURIComponent(atob(base64Part));
+                const packObj = JSON.parse(jsonStr);
+
+                document.getElementById('meta_pack_name').value = packObj.meta.pack_name;
+                document.getElementById('meta_author').value = packObj.meta.author;
+                document.getElementById('meta_version').value = packObj.meta.version;
+
+                tableRowsData = packObj.csv_rows;
+                updateMetaDisplay();
+                renderTableStructure();
+                alert(`成功导入数据包：${packObj.meta.pack_name}`);
+            } catch (err) {
+                alert("解析 .fupack 失败：" + err.message);
+            }
+        }
+
+        function parseCSV(content) {
+            try {
+                if (content.charCodeAt(0) === 0xFEFF) content = content.slice(1);
+
+                const lines = content.split(/\r?\n/).filter(line => line.trim() !== "");
+                if (lines.length < 1) return;
+
+                const headers = lines[0].split(",");
+                const newRows = [];
+
+                for (let i = 1; i < lines.length; i++) {
+                    const rowArr = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+                    let rowObj = {};
+                    headers.forEach((key, index) => {
+                        let val = rowArr[index] || "";
+                        if (val.startsWith('"') && val.endsWith('"')) {
+                            val = val.substring(1, val.length - 1).replace(/""/g, '"');
+                        }
+                        rowObj[key] = val;
+                    });
+                    newRows.push(rowObj);
+                }
+
+                tableRowsData = newRows;
+                renderTableStructure();
+                alert("CSV 明码导入成功！");
+            } catch (err) {
+                alert("CSV 解析失败：" + err.message);
+            }
+        }
+
+        window.onload = function () {
+            switchTemplate("equipment_effects");
+            updateMetaDisplay(); // 初始化显示一次元数据
+        };
+    </script>
+</body>
+</html>
